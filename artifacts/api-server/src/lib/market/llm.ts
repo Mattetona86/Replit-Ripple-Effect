@@ -1,18 +1,18 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import type { Bar, IndicatorPoint, MacdPoint, Level, MarketStructure } from "./indicators";
 import { logger } from "../logger";
 
-let client: OpenAI | undefined;
+let client: Anthropic | undefined;
 
-function getClient(): OpenAI {
+function getClient(): Anthropic {
   if (!client) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error(
-        "OPENAI_API_KEY must be set. Provision it via the environment secrets flow.",
+        "ANTHROPIC_API_KEY must be set. Provision it via the environment secrets flow.",
       );
     }
-    client = new OpenAI({ apiKey });
+    client = new Anthropic({ apiKey });
   }
   return client;
 }
@@ -83,70 +83,65 @@ function round(value: number | undefined): number | null {
   return Math.round(value * 100) / 100;
 }
 
-const responseFormat = {
-  type: "json_schema" as const,
-  json_schema: {
-    name: "analysis_explanation",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["indicatorReads", "bullishCase", "bearishCase", "summary", "levels", "disclaimer"],
-      properties: {
-        indicatorReads: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["key", "label", "currentValueLabel", "signal", "explanation"],
-            properties: {
-              key: { type: "string" },
-              label: { type: "string" },
-              currentValueLabel: { type: "string" },
-              signal: { type: "string", enum: ["bullish", "bearish", "neutral"] },
-              explanation: { type: "string" },
-            },
-          },
-        },
-        bullishCase: { type: "string" },
-        bearishCase: { type: "string" },
-        summary: { type: "string" },
-        levels: {
+const ANALYSIS_TOOL_NAME = "submit_analysis_explanation";
+
+const analysisTool: Anthropic.Tool = {
+  name: ANALYSIS_TOOL_NAME,
+  description: "Submit the structured, plain-language technical analysis explanation.",
+  input_schema: {
+    type: "object",
+    required: ["indicatorReads", "bullishCase", "bearishCase", "summary", "levels", "disclaimer"],
+    properties: {
+      indicatorReads: {
+        type: "array",
+        items: {
           type: "object",
-          additionalProperties: false,
-          required: [
-            "support",
-            "supportReasoning",
-            "resistance",
-            "resistanceReasoning",
-            "ma200",
-            "ma200Reasoning",
-            "illustrativeSetup",
-          ],
+          required: ["key", "label", "currentValueLabel", "signal", "explanation"],
           properties: {
-            support: { type: ["number", "null"] },
-            supportReasoning: { type: ["string", "null"] },
-            resistance: { type: ["number", "null"] },
-            resistanceReasoning: { type: ["string", "null"] },
-            ma200: { type: ["number", "null"] },
-            ma200Reasoning: { type: ["string", "null"] },
-            illustrativeSetup: {
-              type: ["object", "null"],
-              additionalProperties: false,
-              required: ["entry", "entryReasoning", "stop", "stopReasoning", "target", "targetReasoning"],
-              properties: {
-                entry: { type: ["number", "null"] },
-                entryReasoning: { type: ["string", "null"] },
-                stop: { type: ["number", "null"] },
-                stopReasoning: { type: ["string", "null"] },
-                target: { type: ["number", "null"] },
-                targetReasoning: { type: ["string", "null"] },
-              },
+            key: { type: "string" },
+            label: { type: "string" },
+            currentValueLabel: { type: "string" },
+            signal: { type: "string", enum: ["bullish", "bearish", "neutral"] },
+            explanation: { type: "string" },
+          },
+        },
+      },
+      bullishCase: { type: "string" },
+      bearishCase: { type: "string" },
+      summary: { type: "string" },
+      levels: {
+        type: "object",
+        required: [
+          "support",
+          "supportReasoning",
+          "resistance",
+          "resistanceReasoning",
+          "ma200",
+          "ma200Reasoning",
+          "illustrativeSetup",
+        ],
+        properties: {
+          support: { type: ["number", "null"] },
+          supportReasoning: { type: ["string", "null"] },
+          resistance: { type: ["number", "null"] },
+          resistanceReasoning: { type: ["string", "null"] },
+          ma200: { type: ["number", "null"] },
+          ma200Reasoning: { type: ["string", "null"] },
+          illustrativeSetup: {
+            type: ["object", "null"],
+            required: ["entry", "entryReasoning", "stop", "stopReasoning", "target", "targetReasoning"],
+            properties: {
+              entry: { type: ["number", "null"] },
+              entryReasoning: { type: ["string", "null"] },
+              stop: { type: ["number", "null"] },
+              stopReasoning: { type: ["string", "null"] },
+              target: { type: ["number", "null"] },
+              targetReasoning: { type: ["string", "null"] },
             },
           },
         },
-        disclaimer: { type: "string" },
       },
+      disclaimer: { type: "string" },
     },
   },
 };
@@ -202,19 +197,20 @@ Rules:
   const userPrompt = `Pre-computed facts for ${ctx.symbol} (${ctx.name}) on the ${ctx.timeframe} timeframe:\n${JSON.stringify(facts, null, 2)}`;
 
   try {
-    const completion = await getClient().chat.completions.create({
-      model: "gpt-5.4",
-      max_completion_tokens: 8192,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: responseFormat,
+    const message = await getClient().messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+      tools: [analysisTool],
+      tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
     });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) throw new Error("Empty LLM response");
-    return JSON.parse(content) as AnalysisExplanation;
+    const toolUse = message.content.find(
+      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
+    );
+    if (!toolUse) throw new Error("Empty LLM response: no tool_use block returned");
+    return toolUse.input as AnalysisExplanation;
   } catch (error) {
     logger.error({ err: error, symbol: ctx.symbol }, "Failed to generate analysis explanation");
     throw error;
