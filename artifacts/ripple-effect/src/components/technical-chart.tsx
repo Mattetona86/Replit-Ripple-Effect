@@ -1,5 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, LineStyle, CrosshairMode } from 'lightweight-charts';
+import {
+  createChart,
+  ColorType,
+  IChartApi,
+  ISeriesApi,
+  LineStyle,
+  CrosshairMode,
+  CandlestickSeries,
+  HistogramSeries,
+  LineSeries,
+} from 'lightweight-charts';
 import type { StockAnalysis } from '@workspace/api-client-react';
 
 interface TechnicalChartProps {
@@ -62,7 +72,7 @@ export default function TechnicalChart({
     });
     chartRef.current = chart;
 
-    const candleSeries = chart.addCandlestickSeries({
+    const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: '#10B981',
       downColor: '#EF4444',
       borderVisible: false,
@@ -88,7 +98,7 @@ export default function TechnicalChart({
       });
     });
 
-    const volumeSeries = chart.addHistogramSeries({
+    const volumeSeries = chart.addSeries(HistogramSeries, {
       color: '#3B82F6',
       priceFormat: { type: 'volume' },
       priceScaleId: '',
@@ -108,7 +118,7 @@ export default function TechnicalChart({
     });
     rsiChartRef.current = rsiChart;
     
-    const rsiSeries = rsiChart.addLineSeries({
+    const rsiSeries = rsiChart.addSeries(LineSeries, {
       color: '#8B5CF6',
       lineWidth: 2,
     });
@@ -126,9 +136,9 @@ export default function TechnicalChart({
     });
     macdChartRef.current = macdChart;
     
-    const macdLine = macdChart.addLineSeries({ color: '#3B82F6', lineWidth: 2 });
-    const signalLine = macdChart.addLineSeries({ color: '#F59E0B', lineWidth: 2 });
-    const macdHist = macdChart.addHistogramSeries({
+    const macdLine = macdChart.addSeries(LineSeries, { color: '#3B82F6', lineWidth: 2 });
+    const signalLine = macdChart.addSeries(LineSeries, { color: '#F59E0B', lineWidth: 2 });
+    const macdHist = macdChart.addSeries(HistogramSeries, {
       color: '#64748b',
     });
 
@@ -170,7 +180,7 @@ export default function TechnicalChart({
     if (!chartRef.current) return;
     
     if (showSMA50 && !sma50SeriesRef.current && data.sma50.length > 0) {
-      const s = chartRef.current.addLineSeries({ color: '#3B82F6', lineWidth: 2, title: 'SMA 50' });
+      const s = chartRef.current.addSeries(LineSeries, { color: '#3B82F6', lineWidth: 2, title: 'SMA 50' });
       s.setData([...data.sma50].sort((a,b)=>a.time-b.time).map(d => ({ time: d.time as any, value: d.value })));
       sma50SeriesRef.current = s;
     } else if (!showSMA50 && sma50SeriesRef.current) {
@@ -179,7 +189,7 @@ export default function TechnicalChart({
     }
 
     if (showSMA200 && !sma200SeriesRef.current && data.sma200.length > 0) {
-      const s = chartRef.current.addLineSeries({ color: '#8B5CF6', lineWidth: 2, title: 'SMA 200' });
+      const s = chartRef.current.addSeries(LineSeries, { color: '#8B5CF6', lineWidth: 2, title: 'SMA 200' });
       s.setData([...data.sma200].sort((a,b)=>a.time-b.time).map(d => ({ time: d.time as any, value: d.value })));
       sma200SeriesRef.current = s;
     } else if (!showSMA200 && sma200SeriesRef.current) {
@@ -188,7 +198,7 @@ export default function TechnicalChart({
     }
 
     if (showEMA20 && !ema20SeriesRef.current && data.ema20.length > 0) {
-      const s = chartRef.current.addLineSeries({ color: '#F59E0B', lineWidth: 2, title: 'EMA 20' });
+      const s = chartRef.current.addSeries(LineSeries, { color: '#F59E0B', lineWidth: 2, title: 'EMA 20' });
       s.setData([...data.ema20].sort((a,b)=>a.time-b.time).map(d => ({ time: d.time as any, value: d.value })));
       ema20SeriesRef.current = s;
     } else if (!showEMA20 && ema20SeriesRef.current) {
@@ -197,7 +207,7 @@ export default function TechnicalChart({
     }
 
     if (showEMA50 && !ema50SeriesRef.current && data.ema50.length > 0) {
-      const s = chartRef.current.addLineSeries({ color: '#F97316', lineWidth: 2, title: 'EMA 50' });
+      const s = chartRef.current.addSeries(LineSeries, { color: '#F97316', lineWidth: 2, title: 'EMA 50' });
       s.setData([...data.ema50].sort((a,b)=>a.time-b.time).map(d => ({ time: d.time as any, value: d.value })));
       ema50SeriesRef.current = s;
     } else if (!showEMA50 && ema50SeriesRef.current) {

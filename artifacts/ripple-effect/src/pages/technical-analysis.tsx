@@ -51,15 +51,25 @@ export default function TechnicalAnalysis() {
   // APIs
   const { data: searchResults, isLoading: isSearching } = useSearchTickers(
     { query: debouncedSearchQuery },
-    { query: { enabled: debouncedSearchQuery.length > 0 } }
+    {
+      query: {
+        enabled: debouncedSearchQuery.length > 0,
+        queryKey: getSearchTickersQueryKey({ query: debouncedSearchQuery }),
+      },
+    }
   );
 
   const { data: analysis, isLoading: isAnalyzing, isError } = useGetStockAnalysis(
     { symbol: selectedSymbol || '', timeframe: selectedTimeframe, language },
-    { 
-      query: { 
+    {
+      query: {
         enabled: !!selectedSymbol,
-      } 
+        queryKey: getGetStockAnalysisQueryKey({
+          symbol: selectedSymbol || '',
+          timeframe: selectedTimeframe,
+          language,
+        }),
+      },
     }
   );
 

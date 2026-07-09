@@ -1,4 +1,5 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { getAuth } from "@clerk/express";
 import {
   SearchTickersQueryParams,
   SearchTickersResponse,
@@ -8,6 +9,17 @@ import {
 import { searchTickers, getStockAnalysis } from "../lib/market/service";
 
 const router: IRouter = Router();
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+router.use(requireAuth);
 
 router.get("/market/tickers/search", async (req: Request, res: Response): Promise<void> => {
   const params = SearchTickersQueryParams.parse(req.query);
