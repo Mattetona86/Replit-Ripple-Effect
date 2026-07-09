@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "The Ripple Effect"
+version = "1.0.0"
+id = "artifacts/ripple-effect"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24826
+
+[services.development]
+run = "pnpm --filter @workspace/ripple-effect run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ripple-effect", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/ripple-effect/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24826"
+BASE_PATH = "/"

@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: market
+    description: Market data and technical analysis operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /market/tickers/search:
+    get:
+      operationId: searchTickers
+      tags: [market]
+      summary: Autocomplete search over US stock and ETF tickers
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Matching tickers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TickerSearchResult"
+
+  /market/stocks/analysis:
+    get:
+      operationId: getStockAnalysis
+      tags: [market]
+      summary: Computed price series, technical indicators, and plain-language educational read for a ticker
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Timeframe"
+        - name: language
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Language"
+      responses:
+        "200":
+          description: Technical analysis for the requested ticker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockAnalysis"
+        "404":
+          description: Ticker not found
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +90,265 @@ components:
       required:
         - status
 
+    Timeframe:
+      type: string
+      enum: ["1D", "1W", "1M", "3M", "1Y", "5Y"]
+
+    Language:
+      type: string
+      enum: ["en", "it"]
+
+    TickerSearchResult:
+      type: object
+      required: [symbol, name, exchange]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        exchange:
+          type: string
+
+    Candle:
+      type: object
+      required: [time, open, high, low, close, volume]
+      properties:
+        time:
+          type: integer
+          description: Unix timestamp in seconds
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: number
+
+    IndicatorPoint:
+      type: object
+      required: [time, value]
+      properties:
+        time:
+          type: integer
+        value:
+          type: number
+
+    MacdPoint:
+      type: object
+      required: [time, macd, signal, histogram]
+      properties:
+        time:
+          type: integer
+        macd:
+          type: number
+        signal:
+          type: number
+        histogram:
+          type: number
+
+    SwingPoint:
+      type: object
+      required: [time, price, type]
+      properties:
+        time:
+          type: integer
+        price:
+          type: number
+        type:
+          type: string
+          enum: ["high", "low"]
+
+    Level:
+      type: object
+      required: [price, type]
+      properties:
+        price:
+          type: number
+        type:
+          type: string
+          enum: ["support", "resistance"]
+
+    MarketStructure:
+      type: string
+      enum:
+        [
+          "higher_highs_higher_lows",
+          "lower_highs_lower_lows",
+          "sideways",
+          "mixed",
+        ]
+
+    IndicatorSignal:
+      type: string
+      enum: ["bullish", "bearish", "neutral"]
+
+    IndicatorRead:
+      type: object
+      required: [key, label, currentValueLabel, signal, explanation]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        currentValueLabel:
+          type: string
+        signal:
+          $ref: "#/components/schemas/IndicatorSignal"
+        explanation:
+          type: string
+
+    IllustrativeSetup:
+      type: object
+      properties:
+        entry:
+          type: ["number", "null"]
+        entryReasoning:
+          type: ["string", "null"]
+        stop:
+          type: ["number", "null"]
+        stopReasoning:
+          type: ["string", "null"]
+        target:
+          type: ["number", "null"]
+        targetReasoning:
+          type: ["string", "null"]
+
+    LeveledExplanation:
+      type: object
+      properties:
+        support:
+          type: ["number", "null"]
+        supportReasoning:
+          type: ["string", "null"]
+        resistance:
+          type: ["number", "null"]
+        resistanceReasoning:
+          type: ["string", "null"]
+        ma200:
+          type: ["number", "null"]
+        ma200Reasoning:
+          type: ["string", "null"]
+        illustrativeSetup:
+          oneOf:
+            - $ref: "#/components/schemas/IllustrativeSetup"
+            - type: "null"
+
+    AnalysisExplanation:
+      type: object
+      required:
+        [
+          indicatorReads,
+          bullishCase,
+          bearishCase,
+          summary,
+          levels,
+          disclaimer,
+        ]
+      properties:
+        indicatorReads:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorRead"
+        bullishCase:
+          type: string
+        bearishCase:
+          type: string
+        summary:
+          type: string
+        levels:
+          $ref: "#/components/schemas/LeveledExplanation"
+        disclaimer:
+          type: string
+
+    StockAnalysis:
+      type: object
+      required:
+        [
+          symbol,
+          name,
+          exchange,
+          timeframe,
+          lastPrice,
+          asOf,
+          candles,
+          volumeAvg20,
+          sma50,
+          sma200,
+          ema20,
+          ema50,
+          rsi14,
+          macd,
+          swingPoints,
+          marketStructure,
+          supportLevels,
+          resistanceLevels,
+          unusualVolume,
+          explanation,
+        ]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        exchange:
+          type: string
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        lastPrice:
+          type: number
+        asOf:
+          type: string
+          description: ISO timestamp of the underlying price data
+        candles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Candle"
+        volumeAvg20:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorPoint"
+        sma50:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorPoint"
+        sma200:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorPoint"
+        ema20:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorPoint"
+        ema50:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorPoint"
+        rsi14:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorPoint"
+        macd:
+          type: array
+          items:
+            $ref: "#/components/schemas/MacdPoint"
+        swingPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwingPoint"
+        marketStructure:
+          $ref: "#/components/schemas/MarketStructure"
+        supportLevels:
+          type: array
+          items:
+            type: number
+        resistanceLevels:
+          type: array
+          items:
+            type: number
+        unusualVolume:
+          type: boolean
+        explanation:
+          $ref: "#/components/schemas/AnalysisExplanation"
