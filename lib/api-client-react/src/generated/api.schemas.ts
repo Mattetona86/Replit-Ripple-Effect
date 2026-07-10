@@ -175,6 +175,24 @@ export interface StockAnalysis {
   explanation: AnalysisExplanation;
 }
 
+export interface SaveAnalysisRequest {
+  symbol: string;
+  name: string;
+  timeframe: Timeframe;
+  language: Language;
+  snapshot: StockAnalysis;
+}
+
+export interface SavedAnalysis {
+  id: number;
+  symbol: string;
+  name: string;
+  timeframe: Timeframe;
+  language: Language;
+  snapshot: StockAnalysis;
+  createdAt: string;
+}
+
 export type SearchTickersParams = {
 /**
  * @minLength 1

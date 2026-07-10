@@ -80,6 +80,53 @@ paths:
         "404":
           description: Ticker not found
 
+  /market/saved:
+    get:
+      operationId: listSavedAnalyses
+      tags: [market]
+      summary: List the current user's saved analyses
+      responses:
+        "200":
+          description: Saved analyses, most recently saved first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedAnalysis"
+    post:
+      operationId: saveAnalysis
+      tags: [market]
+      summary: Save (or re-save) a ticker's analysis snapshot for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveAnalysisRequest"
+      responses:
+        "200":
+          description: The saved analysis record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedAnalysis"
+
+  /market/saved/{id}:
+    delete:
+      operationId: deleteSavedAnalysis
+      tags: [market]
+      summary: Remove a saved analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
 components:
   schemas:
     HealthStatus:
@@ -352,3 +399,37 @@ components:
           type: boolean
         explanation:
           $ref: "#/components/schemas/AnalysisExplanation"
+
+    SaveAnalysisRequest:
+      type: object
+      required: [symbol, name, timeframe, language, snapshot]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        language:
+          $ref: "#/components/schemas/Language"
+        snapshot:
+          $ref: "#/components/schemas/StockAnalysis"
+
+    SavedAnalysis:
+      type: object
+      required: [id, symbol, name, timeframe, language, snapshot, createdAt]
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        name:
+          type: string
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        language:
+          $ref: "#/components/schemas/Language"
+        snapshot:
+          $ref: "#/components/schemas/StockAnalysis"
+        createdAt:
+          type: string

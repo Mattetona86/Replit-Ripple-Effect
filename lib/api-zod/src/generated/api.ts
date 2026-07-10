@@ -130,3 +130,299 @@ export const GetStockAnalysisResponse = zod.object({
 })
 
 
+/**
+ * @summary List the current user's saved analyses
+ */
+export const ListSavedAnalysesResponseItem = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "timeframe": zod.enum(['1D', '1W', '1M', '3M', '1Y', '5Y']),
+  "language": zod.enum(['en', 'it']),
+  "snapshot": zod.object({
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "exchange": zod.string(),
+  "timeframe": zod.enum(['1D', '1W', '1M', '3M', '1Y', '5Y']),
+  "lastPrice": zod.number(),
+  "asOf": zod.string().describe('ISO timestamp of the underlying price data'),
+  "candles": zod.array(zod.object({
+  "time": zod.number().describe('Unix timestamp in seconds'),
+  "open": zod.number(),
+  "high": zod.number(),
+  "low": zod.number(),
+  "close": zod.number(),
+  "volume": zod.number()
+})),
+  "volumeAvg20": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "sma50": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "sma200": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "ema20": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "ema50": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "rsi14": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "macd": zod.array(zod.object({
+  "time": zod.number(),
+  "macd": zod.number(),
+  "signal": zod.number(),
+  "histogram": zod.number()
+})),
+  "swingPoints": zod.array(zod.object({
+  "time": zod.number(),
+  "price": zod.number(),
+  "type": zod.enum(['high', 'low'])
+})),
+  "marketStructure": zod.enum(['higher_highs_higher_lows', 'lower_highs_lower_lows', 'sideways', 'mixed']),
+  "supportLevels": zod.array(zod.number()),
+  "resistanceLevels": zod.array(zod.number()),
+  "unusualVolume": zod.boolean(),
+  "explanation": zod.object({
+  "indicatorReads": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "currentValueLabel": zod.string(),
+  "signal": zod.enum(['bullish', 'bearish', 'neutral']),
+  "explanation": zod.string()
+})),
+  "bullishCase": zod.string(),
+  "bearishCase": zod.string(),
+  "summary": zod.string(),
+  "levels": zod.object({
+  "support": zod.number().nullish(),
+  "supportReasoning": zod.string().nullish(),
+  "resistance": zod.number().nullish(),
+  "resistanceReasoning": zod.string().nullish(),
+  "ma200": zod.number().nullish(),
+  "ma200Reasoning": zod.string().nullish(),
+  "illustrativeSetup": zod.union([zod.object({
+  "entry": zod.number().nullish(),
+  "entryReasoning": zod.string().nullish(),
+  "stop": zod.number().nullish(),
+  "stopReasoning": zod.string().nullish(),
+  "target": zod.number().nullish(),
+  "targetReasoning": zod.string().nullish()
+}),zod.null()]).optional()
+}),
+  "disclaimer": zod.string()
+})
+}),
+  "createdAt": zod.string()
+})
+export const ListSavedAnalysesResponse = zod.array(ListSavedAnalysesResponseItem)
+
+
+/**
+ * @summary Save (or re-save) a ticker's analysis snapshot for the current user
+ */
+export const SaveAnalysisBody = zod.object({
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "timeframe": zod.enum(['1D', '1W', '1M', '3M', '1Y', '5Y']),
+  "language": zod.enum(['en', 'it']),
+  "snapshot": zod.object({
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "exchange": zod.string(),
+  "timeframe": zod.enum(['1D', '1W', '1M', '3M', '1Y', '5Y']),
+  "lastPrice": zod.number(),
+  "asOf": zod.string().describe('ISO timestamp of the underlying price data'),
+  "candles": zod.array(zod.object({
+  "time": zod.number().describe('Unix timestamp in seconds'),
+  "open": zod.number(),
+  "high": zod.number(),
+  "low": zod.number(),
+  "close": zod.number(),
+  "volume": zod.number()
+})),
+  "volumeAvg20": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "sma50": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "sma200": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "ema20": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "ema50": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "rsi14": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "macd": zod.array(zod.object({
+  "time": zod.number(),
+  "macd": zod.number(),
+  "signal": zod.number(),
+  "histogram": zod.number()
+})),
+  "swingPoints": zod.array(zod.object({
+  "time": zod.number(),
+  "price": zod.number(),
+  "type": zod.enum(['high', 'low'])
+})),
+  "marketStructure": zod.enum(['higher_highs_higher_lows', 'lower_highs_lower_lows', 'sideways', 'mixed']),
+  "supportLevels": zod.array(zod.number()),
+  "resistanceLevels": zod.array(zod.number()),
+  "unusualVolume": zod.boolean(),
+  "explanation": zod.object({
+  "indicatorReads": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "currentValueLabel": zod.string(),
+  "signal": zod.enum(['bullish', 'bearish', 'neutral']),
+  "explanation": zod.string()
+})),
+  "bullishCase": zod.string(),
+  "bearishCase": zod.string(),
+  "summary": zod.string(),
+  "levels": zod.object({
+  "support": zod.number().nullish(),
+  "supportReasoning": zod.string().nullish(),
+  "resistance": zod.number().nullish(),
+  "resistanceReasoning": zod.string().nullish(),
+  "ma200": zod.number().nullish(),
+  "ma200Reasoning": zod.string().nullish(),
+  "illustrativeSetup": zod.union([zod.object({
+  "entry": zod.number().nullish(),
+  "entryReasoning": zod.string().nullish(),
+  "stop": zod.number().nullish(),
+  "stopReasoning": zod.string().nullish(),
+  "target": zod.number().nullish(),
+  "targetReasoning": zod.string().nullish()
+}),zod.null()]).optional()
+}),
+  "disclaimer": zod.string()
+})
+})
+})
+
+export const SaveAnalysisResponse = zod.object({
+  "id": zod.number(),
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "timeframe": zod.enum(['1D', '1W', '1M', '3M', '1Y', '5Y']),
+  "language": zod.enum(['en', 'it']),
+  "snapshot": zod.object({
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "exchange": zod.string(),
+  "timeframe": zod.enum(['1D', '1W', '1M', '3M', '1Y', '5Y']),
+  "lastPrice": zod.number(),
+  "asOf": zod.string().describe('ISO timestamp of the underlying price data'),
+  "candles": zod.array(zod.object({
+  "time": zod.number().describe('Unix timestamp in seconds'),
+  "open": zod.number(),
+  "high": zod.number(),
+  "low": zod.number(),
+  "close": zod.number(),
+  "volume": zod.number()
+})),
+  "volumeAvg20": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "sma50": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "sma200": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "ema20": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "ema50": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "rsi14": zod.array(zod.object({
+  "time": zod.number(),
+  "value": zod.number()
+})),
+  "macd": zod.array(zod.object({
+  "time": zod.number(),
+  "macd": zod.number(),
+  "signal": zod.number(),
+  "histogram": zod.number()
+})),
+  "swingPoints": zod.array(zod.object({
+  "time": zod.number(),
+  "price": zod.number(),
+  "type": zod.enum(['high', 'low'])
+})),
+  "marketStructure": zod.enum(['higher_highs_higher_lows', 'lower_highs_lower_lows', 'sideways', 'mixed']),
+  "supportLevels": zod.array(zod.number()),
+  "resistanceLevels": zod.array(zod.number()),
+  "unusualVolume": zod.boolean(),
+  "explanation": zod.object({
+  "indicatorReads": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "currentValueLabel": zod.string(),
+  "signal": zod.enum(['bullish', 'bearish', 'neutral']),
+  "explanation": zod.string()
+})),
+  "bullishCase": zod.string(),
+  "bearishCase": zod.string(),
+  "summary": zod.string(),
+  "levels": zod.object({
+  "support": zod.number().nullish(),
+  "supportReasoning": zod.string().nullish(),
+  "resistance": zod.number().nullish(),
+  "resistanceReasoning": zod.string().nullish(),
+  "ma200": zod.number().nullish(),
+  "ma200Reasoning": zod.string().nullish(),
+  "illustrativeSetup": zod.union([zod.object({
+  "entry": zod.number().nullish(),
+  "entryReasoning": zod.string().nullish(),
+  "stop": zod.number().nullish(),
+  "stopReasoning": zod.string().nullish(),
+  "target": zod.number().nullish(),
+  "targetReasoning": zod.string().nullish()
+}),zod.null()]).optional()
+}),
+  "disclaimer": zod.string()
+})
+}),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a saved analysis
+ */
+export const DeleteSavedAnalysisParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteSavedAnalysisResponse = zod.void()
+
+

@@ -6,11 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
@@ -18,13 +22,15 @@ import type {
 import type {
   GetStockAnalysisParams,
   HealthStatus,
+  SaveAnalysisRequest,
+  SavedAnalysis,
   SearchTickersParams,
   StockAnalysis,
   TickerSearchResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -295,4 +301,223 @@ export function useGetStockAnalysis<TData = Awaited<ReturnType<typeof getStockAn
 
 
 
+
+export const getListSavedAnalysesUrl = () => {
+
+
+
+
+  return `/api/market/saved`
+}
+
+/**
+ * @summary List the current user's saved analyses
+ */
+export const listSavedAnalyses = async ( options?: RequestInit): Promise<SavedAnalysis[]> => {
+
+  return customFetch<SavedAnalysis[]>(getListSavedAnalysesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSavedAnalysesQueryKey = () => {
+    return [
+    `/api/market/saved`
+    ] as const;
+    }
+
+
+export const getListSavedAnalysesQueryOptions = <TData = Awaited<ReturnType<typeof listSavedAnalyses>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedAnalyses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSavedAnalysesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSavedAnalyses>>> = ({ signal }) => listSavedAnalyses({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSavedAnalyses>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSavedAnalysesQueryResult = NonNullable<Awaited<ReturnType<typeof listSavedAnalyses>>>
+export type ListSavedAnalysesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the current user's saved analyses
+ */
+
+export function useListSavedAnalyses<TData = Awaited<ReturnType<typeof listSavedAnalyses>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedAnalyses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSavedAnalysesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveAnalysisUrl = () => {
+
+
+
+
+  return `/api/market/saved`
+}
+
+/**
+ * @summary Save (or re-save) a ticker's analysis snapshot for the current user
+ */
+export const saveAnalysis = async (saveAnalysisRequest: SaveAnalysisRequest, options?: RequestInit): Promise<SavedAnalysis> => {
+
+  return customFetch<SavedAnalysis>(getSaveAnalysisUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(saveAnalysisRequest)
+  }
+);}
+
+
+
+
+
+export const getSaveAnalysisMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAnalysis>>, TError,{data: BodyType<SaveAnalysisRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveAnalysis>>, TError,{data: BodyType<SaveAnalysisRequest>}, TContext> => {
+
+const mutationKey = ['saveAnalysis'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveAnalysis>>, {data: BodyType<SaveAnalysisRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveAnalysis(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveAnalysisMutationResult = NonNullable<Awaited<ReturnType<typeof saveAnalysis>>>
+    export type SaveAnalysisMutationBody = BodyType<SaveAnalysisRequest>
+    export type SaveAnalysisMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save (or re-save) a ticker's analysis snapshot for the current user
+ */
+export const useSaveAnalysis = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAnalysis>>, TError,{data: BodyType<SaveAnalysisRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveAnalysis>>,
+        TError,
+        {data: BodyType<SaveAnalysisRequest>},
+        TContext
+      > => {
+      return useMutation(getSaveAnalysisMutationOptions(options));
+    }
+
+export const getDeleteSavedAnalysisUrl = (id: number,) => {
+
+
+
+
+  return `/api/market/saved/${id}`
+}
+
+/**
+ * @summary Remove a saved analysis
+ */
+export const deleteSavedAnalysis = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSavedAnalysisUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSavedAnalysisMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSavedAnalysis>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSavedAnalysis>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteSavedAnalysis'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSavedAnalysis>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSavedAnalysis(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSavedAnalysisMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSavedAnalysis>>>
+
+    export type DeleteSavedAnalysisMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a saved analysis
+ */
+export const useDeleteSavedAnalysis = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSavedAnalysis>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSavedAnalysis>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteSavedAnalysisMutationOptions(options));
+    }
 

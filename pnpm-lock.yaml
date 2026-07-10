@@ -6,12 +6,69 @@ settings:
 
 catalogs:
   default:
+    '@replit/vite-plugin-cartographer':
+      specifier: ^0.5.21
+      version: 0.5.21
+    '@replit/vite-plugin-dev-banner':
+      specifier: ^0.1.1
+      version: 0.1.2
+    '@replit/vite-plugin-runtime-error-modal':
+      specifier: ^0.0.6
+      version: 0.0.6
+    '@tailwindcss/vite':
+      specifier: ^4.1.14
+      version: 4.3.2
+    '@tanstack/react-query':
+      specifier: ^5.90.21
+      version: 5.101.2
     '@types/node':
       specifier: ^25.3.3
       version: 25.9.4
+    '@types/react':
+      specifier: ^19.2.0
+      version: 19.2.17
+    '@types/react-dom':
+      specifier: ^19.2.0
+      version: 19.2.3
+    '@vitejs/plugin-react':
+      specifier: ^5.0.4
+      version: 5.2.0
+    class-variance-authority:
+      specifier: ^0.7.1
+      version: 0.7.1
+    clsx:
+      specifier: ^2.1.1
+      version: 2.1.1
     drizzle-orm:
       specifier: ^0.45.2
       version: 0.45.2
+    framer-motion:
+      specifier: ^12.23.24
+      version: 12.42.2
+    lucide-react:
+      specifier: ^0.545.0
+      version: 0.545.0
+    react:
+      specifier: 19.1.0
+      version: 19.1.0
+    react-dom:
+      specifier: 19.1.0
+      version: 19.1.0
+    tailwind-merge:
+      specifier: ^3.3.1
+      version: 3.6.0
+    tailwindcss:
+      specifier: ^4.1.14
+      version: 4.3.2
+    tsx:
+      specifier: ^4.21.0
+      version: 4.23.0
+    vite:
+      specifier: ^7.3.2
+      version: 7.3.6
+    zod:
+      specifier: ^3.25.76
+      version: 3.25.76
 
 overrides:
   esbuild>@esbuild/darwin-arm64: '-'
@@ -115,13 +172,13 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.110.0
-        version: 0.110.0
+        version: 0.110.0(zod@3.25.76)
       '@clerk/express':
         specifier: ^2.1.37
         version: 2.1.37(express@5.2.1)
       '@clerk/shared':
         specifier: ^4.25.0
-        version: 4.25.0
+        version: 4.25.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
@@ -134,9 +191,6 @@ importers:
       cors:
         specifier: ^2.8.6
         version: 2.8.6
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 0.45.2
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -3215,10 +3269,12 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/sdk@0.110.0':
+  '@anthropic-ai/sdk@0.110.0(zod@3.25.76)':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.0.0
+    optionalDependencies:
+      zod: 3.25.76
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -3336,7 +3392,7 @@ snapshots:
 
   '@clerk/backend@3.11.1':
     dependencies:
-      '@clerk/shared': 4.25.0
+      '@clerk/shared': 4.25.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       standardwebhooks: 1.0.0
       tslib: 2.8.1
     transitivePeerDependencies:
@@ -3346,7 +3402,7 @@ snapshots:
   '@clerk/express@2.1.37(express@5.2.1)':
     dependencies:
       '@clerk/backend': 3.11.1
-      '@clerk/shared': 4.25.0
+      '@clerk/shared': 4.25.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       express: 5.2.1
       tslib: 2.8.1
     transitivePeerDependencies:
@@ -3371,13 +3427,6 @@ snapshots:
     optionalDependencies:
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-
-  '@clerk/shared@4.25.0':
-    dependencies:
-      '@tanstack/query-core': 5.101.2
-      dequal: 2.0.3
-      glob-to-regexp: 0.4.1
-      js-cookie: 3.0.7
 
   '@clerk/shared@4.25.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
@@ -4716,8 +4765,6 @@ snapshots:
       '@esbuild-kit/esm-loader': tsx@4.23.0
       esbuild: 0.27.3
       tsx: 4.23.0
-
-  drizzle-orm@0.45.2: {}
 
   drizzle-orm@0.45.2(@types/pg@8.20.0)(pg@8.22.0):
     optionalDependencies:

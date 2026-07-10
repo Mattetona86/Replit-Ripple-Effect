@@ -101,6 +101,15 @@ const dict: Dictionary = {
 
     // Disclaimers
     'disclaimer.banner': 'Educational tool for learning technical analysis. Not financial advice. Technical indicators describe probabilities, not certainties, and can be wrong. Do your own research.',
+
+    // Saved analyses
+    'saved.save': 'Save analysis',
+    'saved.saved': 'Saved',
+    'saved.trigger': 'Saved',
+    'saved.empty': 'No saved analyses yet. Open a ticker and save it to find it here later.',
+    'saved.remove': 'Remove',
+    'saved.toast.saved': 'Analysis saved.',
+    'saved.toast.error': 'Could not save this analysis. Please try again.',
   },
   it: {
     // Navigation
@@ -194,6 +203,15 @@ const dict: Dictionary = {
 
     // Disclaimers
     'disclaimer.banner': 'Strumento educativo per l\'apprendimento dell\'analisi tecnica. Non è una consulenza finanziaria. Gli indicatori tecnici descrivono probabilità, non certezze, e possono sbagliare. Fai le tue ricerche.',
+
+    // Saved analyses
+    'saved.save': 'Salva analisi',
+    'saved.saved': 'Salvata',
+    'saved.trigger': 'Salvate',
+    'saved.empty': 'Nessuna analisi salvata. Apri un titolo e salvalo per ritrovarlo qui.',
+    'saved.remove': 'Rimuovi',
+    'saved.toast.saved': 'Analisi salvata.',
+    'saved.toast.error': 'Impossibile salvare questa analisi. Riprova.',
   }
 };
 

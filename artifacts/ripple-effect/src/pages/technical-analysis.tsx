@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Layout } from '@/components/layout';
 import { useTranslation } from '@/lib/i18n';
-import { useSearchTickers, useGetStockAnalysis, getSearchTickersQueryKey, getGetStockAnalysisQueryKey } from '@workspace/api-client-react';
+import {
+  useSearchTickers,
+  useGetStockAnalysis,
+  getSearchTickersQueryKey,
+  getGetStockAnalysisQueryKey,
+  useListSavedAnalyses,
+  useSaveAnalysis,
+  useDeleteSavedAnalysis,
+  getListSavedAnalysesQueryKey,
+} from '@workspace/api-client-react';
 import { useDebounce } from 'use-debounce';
 import { 
   Search, 
@@ -12,9 +21,14 @@ import {
   TrendingDown, 
   Minus,
   BookOpen,
-  X
+  X,
+  Bookmark,
+  BookmarkCheck,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { queryClient } from '@/lib/queryClient';
 import {
   Tooltip,
   TooltipContent,
@@ -47,6 +61,9 @@ export default function TechnicalAnalysis() {
   });
 
   const [showGlossary, setShowGlossary] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+
+  const { toast } = useToast();
 
   // APIs
   const { data: searchResults, isLoading: isSearching } = useSearchTickers(
@@ -73,9 +90,56 @@ export default function TechnicalAnalysis() {
     }
   );
 
+  const { data: savedAnalyses } = useListSavedAnalyses({
+    query: { queryKey: getListSavedAnalysesQueryKey() },
+  });
+
+  const isSaved = !!savedAnalyses?.some(
+    (s) => s.symbol === selectedSymbol && s.timeframe === selectedTimeframe && s.language === language,
+  );
+
+  const { mutate: saveAnalysisMutate, isPending: isSaving } = useSaveAnalysis({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListSavedAnalysesQueryKey() });
+        toast({ description: t('saved.toast.saved') });
+      },
+      onError: () => {
+        toast({ description: t('saved.toast.error'), variant: 'destructive' });
+      },
+    },
+  });
+
+  const { mutate: deleteSavedMutate } = useDeleteSavedAnalysis({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListSavedAnalysesQueryKey() });
+      },
+    },
+  });
+
   const handleSymbolSelect = (symbol: string) => {
     setSelectedSymbol(symbol);
     setSearchQuery('');
+  };
+
+  const handleSaveAnalysis = () => {
+    if (!analysis || !selectedSymbol) return;
+    saveAnalysisMutate({
+      data: {
+        symbol: analysis.symbol,
+        name: analysis.name,
+        timeframe: selectedTimeframe,
+        language,
+        snapshot: analysis,
+      },
+    });
+  };
+
+  const openSavedAnalysis = (symbol: string, timeframe: Timeframe) => {
+    setSelectedTimeframe(timeframe);
+    setSelectedSymbol(symbol);
+    setShowSaved(false);
   };
 
   const dismissGuide = () => {
@@ -122,6 +186,57 @@ export default function TechnicalAnalysis() {
                   ))
                 ) : (
                   <div className="p-4 text-center text-sm text-muted-foreground">{t('ta.search.empty')}</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSaved((v) => !v)}
+              className="h-9 gap-2 shrink-0"
+            >
+              <Bookmark size={14} />
+              {t('saved.trigger')}
+              {savedAnalyses && savedAnalyses.length > 0 && (
+                <span className="text-[10px] bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center">
+                  {savedAnalyses.length}
+                </span>
+              )}
+            </Button>
+            {showSaved && (
+              <div className="absolute top-full right-0 mt-2 w-80 bg-popover border border-border rounded-lg shadow-xl overflow-hidden max-h-80 overflow-y-auto z-30">
+                {!savedAnalyses || savedAnalyses.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">{t('saved.empty')}</div>
+                ) : (
+                  savedAnalyses.map((s) => (
+                    <div
+                      key={s.id}
+                      className="w-full text-left px-4 py-3 hover:bg-accent flex items-center justify-between border-b border-border/50 last:border-0 gap-2"
+                    >
+                      <button
+                        className="flex-1 text-left min-w-0"
+                        onClick={() => openSavedAnalysis(s.symbol, s.timeframe as Timeframe)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-foreground">{s.symbol}</span>
+                          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm">
+                            {t(`tf.${s.timeframe}`)}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground line-clamp-1 block">{s.name}</span>
+                      </button>
+                      <button
+                        className="text-muted-foreground hover:text-destructive p-1.5 rounded shrink-0"
+                        onClick={() => deleteSavedMutate({ id: s.id })}
+                        aria-label={t('saved.remove')}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
                 )}
               </div>
             )}
@@ -189,12 +304,24 @@ export default function TechnicalAnalysis() {
                     <h2 className="text-2xl font-bold font-mono tracking-tight">{analysis.symbol}</h2>
                     <p className="text-sm text-muted-foreground">{analysis.name}</p>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold font-mono">${analysis.lastPrice?.toFixed(2)}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {new Date(analysis.asOf).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric'
-                      })}
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant={isSaved ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={handleSaveAnalysis}
+                      disabled={isSaving || isSaved}
+                      className="h-9 gap-2"
+                    >
+                      {isSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                      {isSaved ? t('saved.saved') : t('saved.save')}
+                    </Button>
+                    <div className="text-right">
+                      <div className="text-xl font-bold font-mono">${analysis.lastPrice?.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {new Date(analysis.asOf).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric'
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -244,6 +371,16 @@ export default function TechnicalAnalysis() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-4 space-y-8">
+                  {/* Overall Summary */}
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-primary mb-2">
+                      {t('explain.summary')}
+                    </h4>
+                    <p className="text-sm text-foreground/90 leading-relaxed font-medium">
+                      {analysis.explanation.summary}
+                    </p>
+                  </div>
+
                   {/* Indicator Reads */}
                   <div className="space-y-3">
                     {analysis.explanation.indicatorReads.map((read, idx) => (
@@ -281,16 +418,6 @@ export default function TechnicalAnalysis() {
                       </h4>
                       <p className="text-sm text-foreground/90 leading-relaxed">{analysis.explanation.bearishCase}</p>
                     </div>
-                  </div>
-
-                  {/* Overall Summary */}
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-primary mb-2">
-                      {t('explain.summary')}
-                    </h4>
-                    <p className="text-sm text-foreground/90 leading-relaxed font-medium">
-                      {analysis.explanation.summary}
-                    </p>
                   </div>
 
                   {/* Levels & Illustrative Setup */}

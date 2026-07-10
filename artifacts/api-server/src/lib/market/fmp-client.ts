@@ -40,6 +40,13 @@ export async function searchTickers(query: string): Promise<FmpSearchResult[]> {
   return fmpGet<FmpSearchResult[]>("/search-symbol", { query, limit: 10 });
 }
 
+// FMP's /search-symbol only matches against the ticker symbol itself, so a
+// query like "Tesla" returns nothing. /search-name matches against the
+// company name, which is what users usually type.
+export async function searchByName(query: string): Promise<FmpSearchResult[]> {
+  return fmpGet<FmpSearchResult[]>("/search-name", { query, limit: 10 });
+}
+
 export interface FmpQuote {
   symbol: string;
   name: string;

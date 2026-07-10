@@ -5,8 +5,17 @@ import {
   SearchTickersResponse,
   GetStockAnalysisQueryParams,
   GetStockAnalysisResponse,
+  ListSavedAnalysesResponse,
+  SaveAnalysisBody,
+  SaveAnalysisResponse,
+  DeleteSavedAnalysisParams,
 } from "@workspace/api-zod";
 import { searchTickers, getStockAnalysis } from "../lib/market/service";
+import {
+  listSavedAnalyses,
+  saveAnalysis,
+  deleteSavedAnalysis,
+} from "../lib/market/saved-analyses";
 
 const router: IRouter = Router();
 
@@ -39,6 +48,30 @@ router.get("/market/stocks/analysis", async (req: Request, res: Response): Promi
   }
 
   res.json(GetStockAnalysisResponse.parse(analysis));
+});
+
+router.get("/market/saved", async (req: Request, res: Response): Promise<void> => {
+  const { userId } = getAuth(req);
+  const rows = await listSavedAnalyses(userId!);
+  res.json(ListSavedAnalysesResponse.parse(rows));
+});
+
+router.post("/market/saved", async (req: Request, res: Response): Promise<void> => {
+  const { userId } = getAuth(req);
+  const body = SaveAnalysisBody.parse(req.body);
+  const row = await saveAnalysis(userId!, body);
+  res.json(SaveAnalysisResponse.parse(row));
+});
+
+router.delete("/market/saved/:id", async (req: Request, res: Response): Promise<void> => {
+  const { userId } = getAuth(req);
+  const params = DeleteSavedAnalysisParams.parse(req.params);
+  const deleted = await deleteSavedAnalysis(userId!, params.id);
+  if (!deleted) {
+    res.status(404).json({ message: "Saved analysis not found" });
+    return;
+  }
+  res.status(204).end();
 });
 
 export default router;

@@ -1,6 +1,7 @@
 import { LRUCache } from "lru-cache";
 import {
   searchTickers as fmpSearchTickers,
+  searchByName as fmpSearchByName,
   getQuote,
   getDailyHistory,
   getIntradayHistory,
@@ -64,10 +65,25 @@ export async function searchTickers(query: string): Promise<TickerSearchResult[]
   if (cached) return cached;
 
   const US_EXCHANGES = new Set(["NASDAQ", "NYSE", "AMEX", "NYSE American", "NYSE Arca", "BATS", "CBOE"]);
-  const results = await fmpSearchTickers(query);
-  const mapped = results
-    .filter((r) => r.symbol && r.name && US_EXCHANGES.has(r.exchange))
-    .map((r) => ({ symbol: r.symbol, name: r.name, exchange: r.exchange ?? r.exchangeFullName }));
+
+  // Users often type a company name ("Tesla") rather than the exact ticker
+  // ("TSLA"), so query both the symbol-matching and name-matching FMP
+  // endpoints and merge the results, preferring the symbol match's ordering.
+  const [bySymbol, byName] = await Promise.all([
+    fmpSearchTickers(query),
+    fmpSearchByName(query),
+  ]);
+
+  const seen = new Set<string>();
+  const mapped: TickerSearchResult[] = [];
+  for (const r of [...bySymbol, ...byName]) {
+    const exchange = r.exchange ?? r.exchangeFullName;
+    if (!r.symbol || !r.name || !US_EXCHANGES.has(exchange)) continue;
+    if (seen.has(r.symbol)) continue;
+    seen.add(r.symbol);
+    mapped.push({ symbol: r.symbol, name: r.name, exchange });
+  }
+
   searchCache.set(query, mapped);
   return mapped;
 }

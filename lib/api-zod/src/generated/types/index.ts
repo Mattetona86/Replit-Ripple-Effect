@@ -20,6 +20,8 @@ export * from './leveledExplanation';
 export * from './levelType';
 export * from './macdPoint';
 export * from './marketStructure';
+export * from './saveAnalysisRequest';
+export * from './savedAnalysis';
 export * from './searchTickersParams';
 export * from './stockAnalysis';
 export * from './swingPoint';
