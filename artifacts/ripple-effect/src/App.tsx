@@ -129,23 +129,29 @@ function HomeRedirect() {
   );
 }
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRedirect() {
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    setLocation('/sign-in', { replace: true });
+  }, [setLocation]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-pulse">Loading...</div>
+    </div>
+  );
+}
+
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   return (
     <>
       <Show when="signed-in">
         <Component />
       </Show>
       <Show when="signed-out">
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-pulse">Loading...</div>
-          {/* Typically Clerk redirects to sign-in via its own protection, but we can enforce it */}
-          {(() => {
-            setLocation('/sign-in');
-            return null;
-          })()}
-        </div>
+        {/* Typically Clerk redirects to sign-in via its own protection, but we enforce it here too */}
+        <ProtectedRedirect />
       </Show>
     </>
   );
