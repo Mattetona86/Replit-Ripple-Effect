@@ -946,7 +946,7 @@ components:
 
     FundamentalAnalysis:
       type: object
-      required: [symbol, name, currency, exchange, lastPrice, asOf, scores, growth, profitability, cashFlow, financialStrength, capitalEfficiency, valuation, peers, redFlags, strengths, historical, explanation, dataCoverage]
+      required: [symbol, name, currency, lastPrice, asOf, scores, growth, profitability, cashFlow, financialStrength, capitalEfficiency, valuation, peers, redFlags, strengths, historical, explanation, dataCoverage]
       properties:
         symbol:
           type: string
@@ -961,7 +961,7 @@ components:
         currency:
           type: string
         exchange:
-          type: string
+          type: ["string", "null"]
         logoUrl:
           type: ["string", "null"]
         lastPrice:

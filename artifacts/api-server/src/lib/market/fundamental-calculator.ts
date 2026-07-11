@@ -261,7 +261,7 @@ export interface FundamentalData {
   industry: string | null;
   country: string | null;
   currency: string;
-  exchange: string;
+  exchange: string | null;
   logoUrl: string | null;
   lastPrice: number;
   marketCap: number | null;
@@ -1349,7 +1349,7 @@ export function computeFundamentals(raw: FundamentalRawData): FundamentalData {
     industry: profile.industry ?? null,
     country: profile.country ?? null,
     currency: profile.currency ?? "USD",
-    exchange: profile.exchangeShortName,
+    exchange: profile.exchangeShortName ?? null,
     logoUrl: profile.image ?? null,
     lastPrice: currentPrice,
     marketCap: round2(marketCap),

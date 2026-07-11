@@ -50,7 +50,7 @@ export const GetFundamentalAnalysisResponse = zod.object({
   "industry": zod.string().nullish(),
   "country": zod.string().nullish(),
   "currency": zod.string(),
-  "exchange": zod.string(),
+  "exchange": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
   "lastPrice": zod.number(),
   "marketCap": zod.number().nullish(),

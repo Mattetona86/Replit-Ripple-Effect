@@ -29,7 +29,8 @@ export interface FundamentalAnalysis {
   /** @nullable */
   country?: string | null;
   currency: string;
-  exchange: string;
+  /** @nullable */
+  exchange?: string | null;
   /** @nullable */
   logoUrl?: string | null;
   lastPrice: number;
