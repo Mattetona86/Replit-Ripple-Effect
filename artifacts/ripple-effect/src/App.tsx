@@ -14,6 +14,7 @@ import { I18nProvider } from '@/lib/i18n';
 import Landing from '@/pages/landing';
 import Products from '@/pages/products';
 import TechnicalAnalysis from '@/pages/technical-analysis';
+import FundamentalAnalysis from '@/pages/fundamental-analysis';
 import { Layout } from '@/components/layout';
 
 const clerkPubKey = publishableKeyFromHost(
@@ -182,6 +183,9 @@ function ClerkProviderWithRoutes() {
           </Route>
           <Route path="/products/technical-analysis">
             <ProtectedRoute component={TechnicalAnalysis} />
+          </Route>
+          <Route path="/products/fundamental-analysis">
+            <ProtectedRoute component={FundamentalAnalysis} />
           </Route>
           
           <Route component={NotFound} />

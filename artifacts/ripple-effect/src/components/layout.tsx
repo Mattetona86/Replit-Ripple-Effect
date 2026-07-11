@@ -2,7 +2,7 @@ import React, { ReactNode, useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useClerk, useUser, Show } from '@clerk/react';
 import { Link, useLocation } from 'wouter';
-import { LogOut, Menu, X, Globe, Library } from 'lucide-react';
+import { LogOut, Menu, X, Globe, Library, LineChart, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -36,6 +36,14 @@ export function Layout({ children }: { children: ReactNode }) {
               <Show when="signed-in">
                 <Link href="/products" className="px-3 py-2 rounded-md hover:text-foreground hover:bg-accent transition-colors">
                   {t('nav.products')}
+                </Link>
+                <Link href="/products/technical-analysis" className="px-3 py-2 rounded-md hover:text-foreground hover:bg-accent transition-colors flex items-center gap-1.5">
+                  <LineChart size={14} />
+                  {t('nav.ta')}
+                </Link>
+                <Link href="/products/fundamental-analysis" className="px-3 py-2 rounded-md hover:text-foreground hover:bg-accent transition-colors flex items-center gap-1.5">
+                  <BarChart2 size={14} />
+                  {t('nav.fa')}
                 </Link>
               </Show>
             </nav>
@@ -104,6 +112,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <Link href="/products" className="flex items-center gap-2 px-4 py-3 rounded-md hover:bg-accent text-lg font-medium">
               <Library size={20} />
               {t('nav.products')}
+            </Link>
+            <Link href="/products/technical-analysis" className="flex items-center gap-2 px-4 py-3 rounded-md hover:bg-accent text-lg font-medium">
+              <LineChart size={20} />
+              {t('nav.ta')}
+            </Link>
+            <Link href="/products/fundamental-analysis" className="flex items-center gap-2 px-4 py-3 rounded-md hover:bg-accent text-lg font-medium">
+              <BarChart2 size={20} />
+              {t('nav.fa')}
             </Link>
           </Show>
 

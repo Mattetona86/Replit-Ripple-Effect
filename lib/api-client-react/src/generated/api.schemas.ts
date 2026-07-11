@@ -175,6 +175,429 @@ export interface StockAnalysis {
   explanation: AnalysisExplanation;
 }
 
+export type ScoreLabel = typeof ScoreLabel[keyof typeof ScoreLabel];
+
+
+export const ScoreLabel = {
+  very_strong: 'very_strong',
+  strong: 'strong',
+  neutral: 'neutral',
+  weak: 'weak',
+  very_weak: 'very_weak',
+} as const;
+
+export type Trend = typeof Trend[keyof typeof Trend];
+
+
+export const Trend = {
+  improving: 'improving',
+  declining: 'declining',
+  stable: 'stable',
+} as const;
+
+export type EarningsQuality = typeof EarningsQuality[keyof typeof EarningsQuality];
+
+
+export const EarningsQuality = {
+  high: 'high',
+  adequate: 'adequate',
+  weak: 'weak',
+  very_weak: 'very_weak',
+} as const;
+
+export type ValuationQuadrant = typeof ValuationQuadrant[keyof typeof ValuationQuadrant];
+
+
+export const ValuationQuadrant = {
+  quality_cheap: 'quality_cheap',
+  quality_expensive: 'quality_expensive',
+  weak_cheap: 'weak_cheap',
+  weak_expensive: 'weak_expensive',
+} as const;
+
+export interface GrowthMetric {
+  /** @nullable */
+  value?: number | null;
+  /** @nullable */
+  peerMedian?: number | null;
+  /** @nullable */
+  peerPercentile?: number | null;
+  trend?: Trend | null;
+  isNm: boolean;
+}
+
+export interface ValuationMultiple {
+  /** @nullable */
+  value?: number | null;
+  /** @nullable */
+  peerMedian?: number | null;
+  /** @nullable */
+  peerPercentile?: number | null;
+  /** @nullable */
+  historicalMedian3y?: number | null;
+  /** @nullable */
+  historicalMedian5y?: number | null;
+  /** @nullable */
+  vsPeers?: number | null;
+  /** @nullable */
+  vsHistory3y?: number | null;
+}
+
+export interface DimensionScore {
+  score: number;
+  label: ScoreLabel;
+  labelEn: string;
+  labelIt: string;
+  keyDrivers: string[];
+}
+
+export type FundamentalScoresConfidenceLevel = typeof FundamentalScoresConfidenceLevel[keyof typeof FundamentalScoresConfidenceLevel];
+
+
+export const FundamentalScoresConfidenceLevel = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+} as const;
+
+export interface FundamentalScores {
+  growth: DimensionScore;
+  profitability: DimensionScore;
+  cashFlow: DimensionScore;
+  financialStrength: DimensionScore;
+  capitalEfficiency: DimensionScore;
+  valuation: DimensionScore;
+  overall: number;
+  overallLabel: ScoreLabel;
+  overallLabelEn: string;
+  overallLabelIt: string;
+  confidenceLevel: FundamentalScoresConfidenceLevel;
+  coveragePct: number;
+  metricsAvailable: number;
+  metricsTotal: number;
+}
+
+export interface GrowthSection {
+  /** @nullable */
+  revenueTtm?: number | null;
+  revenueYoy: GrowthMetric;
+  revenue3yCagr: GrowthMetric;
+  revenue5yCagr: GrowthMetric;
+  revenueQoQ: GrowthMetric;
+  revenueYoYLatestQ: GrowthMetric;
+  /** @nullable */
+  epsDilutedTtm?: number | null;
+  epsYoy: GrowthMetric;
+  eps3yCagr: GrowthMetric;
+  operatingIncomeYoy: GrowthMetric;
+  netIncomeYoy: GrowthMetric;
+  ocfYoy: GrowthMetric;
+  fcfYoy: GrowthMetric;
+  fcf3yCagr: GrowthMetric;
+}
+
+export interface ProfitabilitySection {
+  /** @nullable */
+  grossMarginTtm?: number | null;
+  /** @nullable */
+  grossMarginLastFy?: number | null;
+  /** @nullable */
+  grossMargin3yAvg?: number | null;
+  grossMarginTrend: Trend | null;
+  /** @nullable */
+  grossMarginVsPeers?: number | null;
+  /** @nullable */
+  operatingMarginTtm?: number | null;
+  /** @nullable */
+  operatingMarginLastFy?: number | null;
+  /** @nullable */
+  operatingMargin3yAvg?: number | null;
+  operatingMarginTrend: Trend | null;
+  /** @nullable */
+  operatingMarginVsPeers?: number | null;
+  /** @nullable */
+  ebitdaMarginTtm?: number | null;
+  /** @nullable */
+  netMarginTtm?: number | null;
+  /** @nullable */
+  netMarginLastFy?: number | null;
+  /** @nullable */
+  netMargin3yAvg?: number | null;
+  netMarginTrend: Trend | null;
+  /** @nullable */
+  fcfMarginTtm?: number | null;
+  /** @nullable */
+  roa?: number | null;
+  /** @nullable */
+  roe?: number | null;
+  /** @nullable */
+  roic?: number | null;
+  /** @nullable */
+  roeWarning?: string | null;
+  /** @nullable */
+  peerGrossMarginMedian?: number | null;
+  /** @nullable */
+  peerOperatingMarginMedian?: number | null;
+  /** @nullable */
+  peerRoicMedian?: number | null;
+}
+
+export interface CashFlowSection {
+  /** @nullable */
+  ocfTtm?: number | null;
+  /** @nullable */
+  capexTtm?: number | null;
+  /** @nullable */
+  fcfTtm?: number | null;
+  /** @nullable */
+  fcfPerShareTtm?: number | null;
+  /** @nullable */
+  fcfMarginTtm?: number | null;
+  /** @nullable */
+  cashConversionRatio?: number | null;
+  /** @nullable */
+  ocfToNetIncome?: number | null;
+  /** @nullable */
+  fcfToNetIncome?: number | null;
+  /** @nullable */
+  capexToRevenue?: number | null;
+  /** @nullable */
+  sbcTtm?: number | null;
+  /** @nullable */
+  sbcToRevenueTtm?: number | null;
+  earningsQuality: EarningsQuality;
+  earningsQualitySignals: string[];
+}
+
+export interface FinancialStrengthSection {
+  /** @nullable */
+  cash?: number | null;
+  /** @nullable */
+  totalDebt?: number | null;
+  /** @nullable */
+  netDebt?: number | null;
+  isNetCash: boolean;
+  /** @nullable */
+  debtToEquity?: number | null;
+  /** @nullable */
+  debtToAssets?: number | null;
+  /** @nullable */
+  netDebtToEbitda?: number | null;
+  netDebtToEbitdaIsNm: boolean;
+  /** @nullable */
+  currentRatio?: number | null;
+  /** @nullable */
+  quickRatio?: number | null;
+  /** @nullable */
+  interestCoverage?: number | null;
+  /** @nullable */
+  ocfToDebt?: number | null;
+  /** @nullable */
+  goodwillToAssets?: number | null;
+  /** @nullable */
+  intangibleToAssets?: number | null;
+}
+
+export interface CapitalEfficiencySection {
+  /** @nullable */
+  roic?: number | null;
+  /** @nullable */
+  assetTurnover?: number | null;
+  /** @nullable */
+  inventoryTurnover?: number | null;
+  /** @nullable */
+  receivablesTurnover?: number | null;
+  /** @nullable */
+  dso?: number | null;
+  /** @nullable */
+  dio?: number | null;
+  /** @nullable */
+  dpo?: number | null;
+  /** @nullable */
+  cashConversionCycle?: number | null;
+}
+
+export interface ValuationMatrix {
+  qualityScore: number;
+  valuationScore: number;
+  quadrant: ValuationQuadrant;
+  label: string;
+  labelIt: string;
+}
+
+export interface ValuationSection {
+  pe: ValuationMultiple;
+  forwardPe: ValuationMultiple;
+  ps: ValuationMultiple;
+  pb: ValuationMultiple;
+  pFcf: ValuationMultiple;
+  evRevenue: ValuationMultiple;
+  evEbitda: ValuationMultiple;
+  evEbit: ValuationMultiple;
+  /** @nullable */
+  dividendYield?: number | null;
+  /** @nullable */
+  buybackYield?: number | null;
+  /** @nullable */
+  sharesOutstanding?: number | null;
+  /** @nullable */
+  dilution1y?: number | null;
+  /** @nullable */
+  dilution3y?: number | null;
+  valuationMatrix: ValuationMatrix;
+}
+
+export interface PeerCompanyData {
+  symbol: string;
+  name: string;
+  /** @nullable */
+  marketCap?: number | null;
+  /** @nullable */
+  revenueGrowthYoy?: number | null;
+  /** @nullable */
+  grossMargin?: number | null;
+  /** @nullable */
+  operatingMargin?: number | null;
+  /** @nullable */
+  fcfMargin?: number | null;
+  /** @nullable */
+  roic?: number | null;
+  /** @nullable */
+  netDebtToEbitda?: number | null;
+  /** @nullable */
+  pe?: number | null;
+  /** @nullable */
+  evToEbitda?: number | null;
+  /** @nullable */
+  evToSales?: number | null;
+  /** @nullable */
+  priceToFcf?: number | null;
+}
+
+export interface PeerComparisonSection {
+  peers: PeerCompanyData[];
+  peerGroupSize: number;
+  excludedCount: number;
+}
+
+export interface HistoricalDataPoint {
+  year: string;
+  /** @nullable */
+  value?: number | null;
+}
+
+export interface HistoricalSection {
+  revenue: HistoricalDataPoint[];
+  operatingIncome: HistoricalDataPoint[];
+  netIncome: HistoricalDataPoint[];
+  eps: HistoricalDataPoint[];
+  ocf: HistoricalDataPoint[];
+  fcf: HistoricalDataPoint[];
+  grossMargin: HistoricalDataPoint[];
+  operatingMargin: HistoricalDataPoint[];
+  netMargin: HistoricalDataPoint[];
+  netDebt: HistoricalDataPoint[];
+  sharesOutstanding: HistoricalDataPoint[];
+}
+
+export type RedFlagSeverity = typeof RedFlagSeverity[keyof typeof RedFlagSeverity];
+
+
+export const RedFlagSeverity = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export interface RedFlag {
+  key: string;
+  titleEn: string;
+  titleIt: string;
+  severity: RedFlagSeverity;
+  dataPoint: string;
+  explanationEn: string;
+  explanationIt: string;
+  period: string;
+}
+
+export interface FundamentalStrength {
+  key: string;
+  titleEn: string;
+  titleIt: string;
+  dataPoint: string;
+  explanationEn: string;
+  explanationIt: string;
+}
+
+export interface FundamentalExplanation {
+  summary: string;
+  growthAnalysis: string;
+  profitabilityAnalysis: string;
+  cashFlowAnalysis: string;
+  balanceSheetAnalysis: string;
+  valuationAnalysis: string;
+  peerAnalysis: string;
+  strengths: string[];
+  risks: string[];
+  conclusion: string;
+  disclaimer: string;
+}
+
+export type DataCoverageConfidenceLevel = typeof DataCoverageConfidenceLevel[keyof typeof DataCoverageConfidenceLevel];
+
+
+export const DataCoverageConfidenceLevel = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+} as const;
+
+export interface DataCoverage {
+  coveragePct: number;
+  confidenceLevel: DataCoverageConfidenceLevel;
+  metricsAvailable: number;
+  metricsTotal: number;
+  missingAreas: string[];
+}
+
+export interface FundamentalAnalysis {
+  symbol: string;
+  name: string;
+  /** @nullable */
+  sector?: string | null;
+  /** @nullable */
+  industry?: string | null;
+  /** @nullable */
+  country?: string | null;
+  currency: string;
+  exchange: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  lastPrice: number;
+  /** @nullable */
+  marketCap?: number | null;
+  /** @nullable */
+  enterpriseValue?: number | null;
+  asOf: string;
+  /** @nullable */
+  lastFilingDate?: string | null;
+  /** @nullable */
+  fiscalYearEnd?: string | null;
+  scores: FundamentalScores;
+  growth: GrowthSection;
+  profitability: ProfitabilitySection;
+  cashFlow: CashFlowSection;
+  financialStrength: FinancialStrengthSection;
+  capitalEfficiency: CapitalEfficiencySection;
+  valuation: ValuationSection;
+  peers: PeerComparisonSection;
+  redFlags: RedFlag[];
+  strengths: FundamentalStrength[];
+  historical: HistoricalSection;
+  explanation: FundamentalExplanation;
+  dataCoverage: DataCoverage;
+}
+
 export interface SaveAnalysisRequest {
   symbol: string;
   name: string;
@@ -198,6 +621,11 @@ export type SearchTickersParams = {
  * @minLength 1
  */
 query: string;
+};
+
+export type GetFundamentalAnalysisParams = {
+symbol: string;
+language?: Language;
 };
 
 export type GetStockAnalysisParams = {

@@ -11,11 +11,16 @@ import {
   DeleteSavedAnalysisParams,
 } from "@workspace/api-zod";
 import { searchTickers, getStockAnalysis } from "../lib/market/service";
+import { getFundamentalAnalysis } from "../lib/market/fundamental-service";
 import {
   listSavedAnalyses,
   saveAnalysis,
   deleteSavedAnalysis,
 } from "../lib/market/saved-analyses";
+import {
+  GetFundamentalAnalysisQueryParams,
+  GetFundamentalAnalysisResponse,
+} from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -48,6 +53,17 @@ router.get("/market/stocks/analysis", async (req: Request, res: Response): Promi
   }
 
   res.json(GetStockAnalysisResponse.parse(analysis));
+});
+
+router.get("/market/stocks/fundamental-analysis", async (req: Request, res: Response): Promise<void> => {
+  const params = GetFundamentalAnalysisQueryParams.parse(req.query);
+  const language = params.language ?? "en";
+  const analysis = await getFundamentalAnalysis(params.symbol, language);
+  if (!analysis) {
+    res.status(404).json({ message: "Ticker not found or insufficient financial data" });
+    return;
+  }
+  res.json(GetFundamentalAnalysisResponse.parse(analysis));
 });
 
 router.get("/market/saved", async (req: Request, res: Response): Promise<void> => {

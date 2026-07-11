@@ -49,6 +49,32 @@ paths:
                 items:
                   $ref: "#/components/schemas/TickerSearchResult"
 
+  /market/stocks/fundamental-analysis:
+    get:
+      operationId: getFundamentalAnalysis
+      tags: [market]
+      summary: Fundamental analysis with scores, metrics, peer comparison, and AI explanation
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Language"
+      responses:
+        "200":
+          description: Full fundamental analysis for the requested ticker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundamentalAnalysis"
+        "404":
+          description: Ticker not found or insufficient data
+
   /market/stocks/analysis:
     get:
       operationId: getStockAnalysis
@@ -399,6 +425,587 @@ components:
           type: boolean
         explanation:
           $ref: "#/components/schemas/AnalysisExplanation"
+
+    # ── Fundamental Analysis ───────────────────────────────────────────────────
+
+    ScoreLabel:
+      type: string
+      enum: [very_strong, strong, neutral, weak, very_weak]
+
+    Trend:
+      type: string
+      enum: [improving, declining, stable]
+
+    EarningsQuality:
+      type: string
+      enum: [high, adequate, weak, very_weak]
+
+    ValuationQuadrant:
+      type: string
+      enum: [quality_cheap, quality_expensive, weak_cheap, weak_expensive]
+
+    GrowthMetric:
+      type: object
+      required: [isNm]
+      properties:
+        value:
+          type: ["number", "null"]
+        peerMedian:
+          type: ["number", "null"]
+        peerPercentile:
+          type: ["number", "null"]
+        trend:
+          oneOf:
+            - $ref: "#/components/schemas/Trend"
+            - type: "null"
+        isNm:
+          type: boolean
+
+    ValuationMultiple:
+      type: object
+      properties:
+        value:
+          type: ["number", "null"]
+        peerMedian:
+          type: ["number", "null"]
+        peerPercentile:
+          type: ["number", "null"]
+        historicalMedian3y:
+          type: ["number", "null"]
+        historicalMedian5y:
+          type: ["number", "null"]
+        vsPeers:
+          type: ["number", "null"]
+        vsHistory3y:
+          type: ["number", "null"]
+
+    DimensionScore:
+      type: object
+      required: [score, label, labelEn, labelIt, keyDrivers]
+      properties:
+        score:
+          type: number
+        label:
+          $ref: "#/components/schemas/ScoreLabel"
+        labelEn:
+          type: string
+        labelIt:
+          type: string
+        keyDrivers:
+          type: array
+          items:
+            type: string
+
+    FundamentalScores:
+      type: object
+      required: [growth, profitability, cashFlow, financialStrength, capitalEfficiency, valuation, overall, overallLabel, overallLabelEn, overallLabelIt, confidenceLevel, coveragePct, metricsAvailable, metricsTotal]
+      properties:
+        growth:
+          $ref: "#/components/schemas/DimensionScore"
+        profitability:
+          $ref: "#/components/schemas/DimensionScore"
+        cashFlow:
+          $ref: "#/components/schemas/DimensionScore"
+        financialStrength:
+          $ref: "#/components/schemas/DimensionScore"
+        capitalEfficiency:
+          $ref: "#/components/schemas/DimensionScore"
+        valuation:
+          $ref: "#/components/schemas/DimensionScore"
+        overall:
+          type: number
+        overallLabel:
+          $ref: "#/components/schemas/ScoreLabel"
+        overallLabelEn:
+          type: string
+        overallLabelIt:
+          type: string
+        confidenceLevel:
+          type: string
+          enum: [high, medium, low]
+        coveragePct:
+          type: number
+        metricsAvailable:
+          type: integer
+        metricsTotal:
+          type: integer
+
+    GrowthSection:
+      type: object
+      required: [revenueYoy, revenue3yCagr, revenue5yCagr, revenueQoQ, revenueYoYLatestQ, epsYoy, eps3yCagr, operatingIncomeYoy, netIncomeYoy, ocfYoy, fcfYoy, fcf3yCagr]
+      properties:
+        revenueTtm:
+          type: ["number", "null"]
+        revenueYoy:
+          $ref: "#/components/schemas/GrowthMetric"
+        revenue3yCagr:
+          $ref: "#/components/schemas/GrowthMetric"
+        revenue5yCagr:
+          $ref: "#/components/schemas/GrowthMetric"
+        revenueQoQ:
+          $ref: "#/components/schemas/GrowthMetric"
+        revenueYoYLatestQ:
+          $ref: "#/components/schemas/GrowthMetric"
+        epsDilutedTtm:
+          type: ["number", "null"]
+        epsYoy:
+          $ref: "#/components/schemas/GrowthMetric"
+        eps3yCagr:
+          $ref: "#/components/schemas/GrowthMetric"
+        operatingIncomeYoy:
+          $ref: "#/components/schemas/GrowthMetric"
+        netIncomeYoy:
+          $ref: "#/components/schemas/GrowthMetric"
+        ocfYoy:
+          $ref: "#/components/schemas/GrowthMetric"
+        fcfYoy:
+          $ref: "#/components/schemas/GrowthMetric"
+        fcf3yCagr:
+          $ref: "#/components/schemas/GrowthMetric"
+
+    ProfitabilitySection:
+      type: object
+      required: [grossMarginTrend, operatingMarginTrend, netMarginTrend, earningsQuality]
+      properties:
+        grossMarginTtm:
+          type: ["number", "null"]
+        grossMarginLastFy:
+          type: ["number", "null"]
+        grossMargin3yAvg:
+          type: ["number", "null"]
+        grossMarginTrend:
+          oneOf:
+            - $ref: "#/components/schemas/Trend"
+            - type: "null"
+        grossMarginVsPeers:
+          type: ["number", "null"]
+        operatingMarginTtm:
+          type: ["number", "null"]
+        operatingMarginLastFy:
+          type: ["number", "null"]
+        operatingMargin3yAvg:
+          type: ["number", "null"]
+        operatingMarginTrend:
+          oneOf:
+            - $ref: "#/components/schemas/Trend"
+            - type: "null"
+        operatingMarginVsPeers:
+          type: ["number", "null"]
+        ebitdaMarginTtm:
+          type: ["number", "null"]
+        netMarginTtm:
+          type: ["number", "null"]
+        netMarginLastFy:
+          type: ["number", "null"]
+        netMargin3yAvg:
+          type: ["number", "null"]
+        netMarginTrend:
+          oneOf:
+            - $ref: "#/components/schemas/Trend"
+            - type: "null"
+        fcfMarginTtm:
+          type: ["number", "null"]
+        roa:
+          type: ["number", "null"]
+        roe:
+          type: ["number", "null"]
+        roic:
+          type: ["number", "null"]
+        roeWarning:
+          type: ["string", "null"]
+        peerGrossMarginMedian:
+          type: ["number", "null"]
+        peerOperatingMarginMedian:
+          type: ["number", "null"]
+        peerRoicMedian:
+          type: ["number", "null"]
+
+    CashFlowSection:
+      type: object
+      required: [earningsQuality, earningsQualitySignals]
+      properties:
+        ocfTtm:
+          type: ["number", "null"]
+        capexTtm:
+          type: ["number", "null"]
+        fcfTtm:
+          type: ["number", "null"]
+        fcfPerShareTtm:
+          type: ["number", "null"]
+        fcfMarginTtm:
+          type: ["number", "null"]
+        cashConversionRatio:
+          type: ["number", "null"]
+        ocfToNetIncome:
+          type: ["number", "null"]
+        fcfToNetIncome:
+          type: ["number", "null"]
+        capexToRevenue:
+          type: ["number", "null"]
+        sbcTtm:
+          type: ["number", "null"]
+        sbcToRevenueTtm:
+          type: ["number", "null"]
+        earningsQuality:
+          $ref: "#/components/schemas/EarningsQuality"
+        earningsQualitySignals:
+          type: array
+          items:
+            type: string
+
+    FinancialStrengthSection:
+      type: object
+      required: [isNetCash, netDebtToEbitdaIsNm]
+      properties:
+        cash:
+          type: ["number", "null"]
+        totalDebt:
+          type: ["number", "null"]
+        netDebt:
+          type: ["number", "null"]
+        isNetCash:
+          type: boolean
+        debtToEquity:
+          type: ["number", "null"]
+        debtToAssets:
+          type: ["number", "null"]
+        netDebtToEbitda:
+          type: ["number", "null"]
+        netDebtToEbitdaIsNm:
+          type: boolean
+        currentRatio:
+          type: ["number", "null"]
+        quickRatio:
+          type: ["number", "null"]
+        interestCoverage:
+          type: ["number", "null"]
+        ocfToDebt:
+          type: ["number", "null"]
+        goodwillToAssets:
+          type: ["number", "null"]
+        intangibleToAssets:
+          type: ["number", "null"]
+
+    CapitalEfficiencySection:
+      type: object
+      properties:
+        roic:
+          type: ["number", "null"]
+        assetTurnover:
+          type: ["number", "null"]
+        inventoryTurnover:
+          type: ["number", "null"]
+        receivablesTurnover:
+          type: ["number", "null"]
+        dso:
+          type: ["number", "null"]
+        dio:
+          type: ["number", "null"]
+        dpo:
+          type: ["number", "null"]
+        cashConversionCycle:
+          type: ["number", "null"]
+
+    ValuationMatrix:
+      type: object
+      required: [qualityScore, valuationScore, quadrant, label, labelIt]
+      properties:
+        qualityScore:
+          type: number
+        valuationScore:
+          type: number
+        quadrant:
+          $ref: "#/components/schemas/ValuationQuadrant"
+        label:
+          type: string
+        labelIt:
+          type: string
+
+    ValuationSection:
+      type: object
+      required: [pe, forwardPe, ps, pb, pFcf, evRevenue, evEbitda, evEbit, valuationMatrix]
+      properties:
+        pe:
+          $ref: "#/components/schemas/ValuationMultiple"
+        forwardPe:
+          $ref: "#/components/schemas/ValuationMultiple"
+        ps:
+          $ref: "#/components/schemas/ValuationMultiple"
+        pb:
+          $ref: "#/components/schemas/ValuationMultiple"
+        pFcf:
+          $ref: "#/components/schemas/ValuationMultiple"
+        evRevenue:
+          $ref: "#/components/schemas/ValuationMultiple"
+        evEbitda:
+          $ref: "#/components/schemas/ValuationMultiple"
+        evEbit:
+          $ref: "#/components/schemas/ValuationMultiple"
+        dividendYield:
+          type: ["number", "null"]
+        buybackYield:
+          type: ["number", "null"]
+        sharesOutstanding:
+          type: ["number", "null"]
+        dilution1y:
+          type: ["number", "null"]
+        dilution3y:
+          type: ["number", "null"]
+        valuationMatrix:
+          $ref: "#/components/schemas/ValuationMatrix"
+
+    PeerCompanyData:
+      type: object
+      required: [symbol, name]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        marketCap:
+          type: ["number", "null"]
+        revenueGrowthYoy:
+          type: ["number", "null"]
+        grossMargin:
+          type: ["number", "null"]
+        operatingMargin:
+          type: ["number", "null"]
+        fcfMargin:
+          type: ["number", "null"]
+        roic:
+          type: ["number", "null"]
+        netDebtToEbitda:
+          type: ["number", "null"]
+        pe:
+          type: ["number", "null"]
+        evToEbitda:
+          type: ["number", "null"]
+        evToSales:
+          type: ["number", "null"]
+        priceToFcf:
+          type: ["number", "null"]
+
+    PeerComparisonSection:
+      type: object
+      required: [peers, peerGroupSize, excludedCount]
+      properties:
+        peers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PeerCompanyData"
+        peerGroupSize:
+          type: integer
+        excludedCount:
+          type: integer
+
+    HistoricalDataPoint:
+      type: object
+      required: [year]
+      properties:
+        year:
+          type: string
+        value:
+          type: ["number", "null"]
+
+    HistoricalSection:
+      type: object
+      required: [revenue, operatingIncome, netIncome, eps, ocf, fcf, grossMargin, operatingMargin, netMargin, netDebt, sharesOutstanding]
+      properties:
+        revenue:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        operatingIncome:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        netIncome:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        eps:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        ocf:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        fcf:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        grossMargin:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        operatingMargin:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        netMargin:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        netDebt:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+        sharesOutstanding:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoricalDataPoint"
+
+    RedFlag:
+      type: object
+      required: [key, titleEn, titleIt, severity, dataPoint, explanationEn, explanationIt, period]
+      properties:
+        key:
+          type: string
+        titleEn:
+          type: string
+        titleIt:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high]
+        dataPoint:
+          type: string
+        explanationEn:
+          type: string
+        explanationIt:
+          type: string
+        period:
+          type: string
+
+    FundamentalStrength:
+      type: object
+      required: [key, titleEn, titleIt, dataPoint, explanationEn, explanationIt]
+      properties:
+        key:
+          type: string
+        titleEn:
+          type: string
+        titleIt:
+          type: string
+        dataPoint:
+          type: string
+        explanationEn:
+          type: string
+        explanationIt:
+          type: string
+
+    FundamentalExplanation:
+      type: object
+      required: [summary, growthAnalysis, profitabilityAnalysis, cashFlowAnalysis, balanceSheetAnalysis, valuationAnalysis, peerAnalysis, strengths, risks, conclusion, disclaimer]
+      properties:
+        summary:
+          type: string
+        growthAnalysis:
+          type: string
+        profitabilityAnalysis:
+          type: string
+        cashFlowAnalysis:
+          type: string
+        balanceSheetAnalysis:
+          type: string
+        valuationAnalysis:
+          type: string
+        peerAnalysis:
+          type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        risks:
+          type: array
+          items:
+            type: string
+        conclusion:
+          type: string
+        disclaimer:
+          type: string
+
+    DataCoverage:
+      type: object
+      required: [coveragePct, confidenceLevel, metricsAvailable, metricsTotal, missingAreas]
+      properties:
+        coveragePct:
+          type: number
+        confidenceLevel:
+          type: string
+          enum: [high, medium, low]
+        metricsAvailable:
+          type: integer
+        metricsTotal:
+          type: integer
+        missingAreas:
+          type: array
+          items:
+            type: string
+
+    FundamentalAnalysis:
+      type: object
+      required: [symbol, name, currency, exchange, lastPrice, asOf, scores, growth, profitability, cashFlow, financialStrength, capitalEfficiency, valuation, peers, redFlags, strengths, historical, explanation, dataCoverage]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        sector:
+          type: ["string", "null"]
+        industry:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        currency:
+          type: string
+        exchange:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        lastPrice:
+          type: number
+        marketCap:
+          type: ["number", "null"]
+        enterpriseValue:
+          type: ["number", "null"]
+        asOf:
+          type: string
+        lastFilingDate:
+          type: ["string", "null"]
+        fiscalYearEnd:
+          type: ["string", "null"]
+        scores:
+          $ref: "#/components/schemas/FundamentalScores"
+        growth:
+          $ref: "#/components/schemas/GrowthSection"
+        profitability:
+          $ref: "#/components/schemas/ProfitabilitySection"
+        cashFlow:
+          $ref: "#/components/schemas/CashFlowSection"
+        financialStrength:
+          $ref: "#/components/schemas/FinancialStrengthSection"
+        capitalEfficiency:
+          $ref: "#/components/schemas/CapitalEfficiencySection"
+        valuation:
+          $ref: "#/components/schemas/ValuationSection"
+        peers:
+          $ref: "#/components/schemas/PeerComparisonSection"
+        redFlags:
+          type: array
+          items:
+            $ref: "#/components/schemas/RedFlag"
+        strengths:
+          type: array
+          items:
+            $ref: "#/components/schemas/FundamentalStrength"
+        historical:
+          $ref: "#/components/schemas/HistoricalSection"
+        explanation:
+          $ref: "#/components/schemas/FundamentalExplanation"
+        dataCoverage:
+          $ref: "#/components/schemas/DataCoverage"
 
     SaveAnalysisRequest:
       type: object

@@ -1,0 +1,1154 @@
+Voglio aggiungere alla mia piattaforma “The Ripple Effect” una nuova sezione dedicata all’ANALISI FONDAMENTALE delle azioni.
+
+CONTESTO DEL PRODOTTO
+
+La piattaforma permette agli utenti di cercare un ticker e analizzarlo in italiano o inglese.
+
+Attualmente esiste una pagina di analisi tecnica con:
+
+- barra di ricerca del ticker;
+- prezzo corrente;
+- grafici;
+- indicatori;
+- livelli di supporto e resistenza;
+- pannello laterale con spiegazioni in linguaggio semplice;
+- selettore lingua IT/EN;
+- design pulito e professionale;
+- possibilità di salvare l’analisi.
+
+Voglio aggiungere una nuova tab o sezione chiamata:
+
+Italiano: “Analisi Fondamentale”
+Inglese: “Fundamental Analysis”
+
+L’obiettivo non è mostrare semplicemente una lista di ratio, ma aiutare un investitore retail a rispondere a quattro domande:
+
+1. Il business dell’azienda sta crescendo?
+2. Il business è profittevole e finanziariamente solido?
+3. L’azienda genera realmente cassa?
+4. L’azione è sottovalutata o sopravvalutata rispetto ai competitor e alla propria storia?
+
+PRINCIPIO ARCHITETTURALE
+
+Separare chiaramente:
+
+A. DATA & CALCULATION ENGINE
+Raccoglie dati finanziari, normalizza periodi e valute, calcola ratio, trend, percentili e punteggi.
+
+B. AI EXPLANATION ENGINE
+Riceve esclusivamente dati già calcolati e produce spiegazioni in linguaggio semplice.
+
+Il modello AI non deve mai calcolare direttamente i ratio partendo da testi non strutturati e non deve mai inventare dati mancanti.
+
+Ogni valore deve contenere:
+
+- valore;
+- unità;
+- periodo di riferimento;
+- fonte;
+- data di aggiornamento;
+- tipo di dato: reported, calculated, estimated o unavailable.
+
+--------------------------------------------------
+1. STRUTTURA DELLA PAGINA
+--------------------------------------------------
+
+Aggiungi una navigazione principale con almeno:
+
+- Analisi tecnica
+- Analisi fondamentale
+
+La pagina di analisi fondamentale deve essere organizzata in queste sezioni:
+
+1. Riepilogo
+2. Crescita
+3. Redditività
+4. Generazione di cassa
+5. Solidità finanziaria
+6. Efficienza del capitale
+7. Valutazione
+8. Confronto con i competitor
+9. Rischi e segnali d’allarme
+10. Dati storici
+
+Mantieni lo stile visuale della pagina di analisi tecnica esistente:
+
+- card bianche;
+- bordi sottili;
+- angoli arrotondati;
+- colori verde, rosso e neutro;
+- tooltips educativi;
+- pannello laterale con spiegazioni;
+- layout responsive;
+- testi disponibili in italiano e inglese.
+
+--------------------------------------------------
+2. HEADER DELL’AZIONE
+--------------------------------------------------
+
+Mostrare:
+
+- ticker;
+- nome completo;
+- logo;
+- settore;
+- industria;
+- paese;
+- valuta;
+- exchange;
+- prezzo attuale;
+- market capitalization;
+- enterprise value;
+- data dell’ultimo aggiornamento;
+- data dell’ultimo filing disponibile;
+- anno fiscale dell’azienda.
+
+Aggiungere un pulsante:
+
+Italiano: “Salva analisi”
+Inglese: “Save analysis”
+
+--------------------------------------------------
+3. RIEPILOGO FONDAMENTALE
+--------------------------------------------------
+
+Creare una card principale chiamata:
+
+Italiano: “Stato fondamentale”
+Inglese: “Fundamental health”
+
+Mostrare cinque dimensioni:
+
+- Crescita
+- Redditività
+- Generazione di cassa
+- Solidità finanziaria
+- Valutazione
+
+Per ogni dimensione mostrare:
+
+- punteggio da 0 a 100;
+- classificazione;
+- breve spiegazione;
+- indicatori principali che hanno determinato il punteggio.
+
+Classificazioni:
+
+- 80–100: Molto forte / Very strong
+- 65–79: Forte / Strong
+- 50–64: Neutrale / Neutral
+- 35–49: Debole / Weak
+- 0–34: Molto debole / Very weak
+
+Mostrare anche un “Fundamental Score” complessivo da 0 a 100.
+
+Il punteggio non deve essere presentato come una raccomandazione di acquisto o vendita.
+
+Aggiungere una sintesi AI di massimo 120 parole che risponda a:
+
+- cosa funziona nel business;
+- cosa non funziona;
+- principali trend;
+- situazione finanziaria;
+- valutazione rispetto ai peer;
+- principale rischio da monitorare.
+
+Esempio di stile:
+
+“Tesla continua a mostrare una buona crescita dei ricavi, ma la contrazione dei margini e la valutazione superiore alla mediana del settore riducono l’attrattività del titolo. La società mantiene una struttura finanziaria solida e una posizione di cassa positiva, ma il mercato incorpora aspettative di crescita elevate.”
+
+Non usare frasi assolute come:
+
+- “È sicuramente sottovalutata”
+- “Il prezzo salirà”
+- “È un acquisto”
+- “È un titolo sicuro”
+
+--------------------------------------------------
+4. ANALISI DELLA CRESCITA
+--------------------------------------------------
+
+Calcolare e mostrare:
+
+RICAVI
+
+- ricavi TTM;
+- crescita ricavi YoY;
+- CAGR ricavi a 3 anni;
+- CAGR ricavi a 5 anni;
+- crescita trimestrale YoY;
+- crescita sequenziale QoQ;
+- numero di anni con ricavi in crescita negli ultimi 5 anni.
+
+UTILI
+
+- EPS diluito TTM;
+- crescita EPS YoY;
+- CAGR EPS a 3 anni;
+- CAGR EPS a 5 anni;
+- crescita dell’utile operativo;
+- crescita dell’utile netto.
+
+CASSA
+
+- crescita operating cash flow;
+- crescita free cash flow;
+- CAGR free cash flow a 3 e 5 anni.
+
+Per ciascuna metrica mostrare:
+
+- valore attuale;
+- periodo precedente;
+- variazione;
+- trend;
+- mediana dei competitor;
+- percentile nel peer group.
+
+Segnalare chiaramente quando il CAGR non è significativo, per esempio:
+
+- valore iniziale negativo;
+- valore finale negativo;
+- passaggio da perdita a utile;
+- dati insufficienti.
+
+In questi casi mostrare “N/M” o “Non significativo”, non una percentuale fuorviante.
+
+--------------------------------------------------
+5. ANALISI DELLA REDDITIVITÀ
+--------------------------------------------------
+
+Calcolare:
+
+- gross profit margin;
+- operating margin;
+- EBIT margin;
+- EBITDA margin;
+- net income margin;
+- free cash flow margin;
+- ROA;
+- ROE;
+- ROIC;
+- return on tangible capital, quando disponibile.
+
+Per ogni margine mostrare:
+
+- valore TTM;
+- valore dell’ultimo esercizio;
+- media degli ultimi 3 anni;
+- trend a 3 anni;
+- mediana dei competitor;
+- differenza rispetto alla mediana.
+
+Evidenziare:
+
+- espansione dei margini;
+- contrazione dei margini;
+- margini negativi;
+- margini molto volatili;
+- miglioramenti dovuti a componenti non ricorrenti.
+
+Non utilizzare il ROE isolatamente per valutare un’azienda molto indebitata.
+
+Mostrare un avviso quando:
+
+- il ROE è elevato ma l’equity è molto basso;
+- il ROE è elevato principalmente per effetto della leva finanziaria;
+- il patrimonio netto è negativo.
+
+--------------------------------------------------
+6. GENERAZIONE DI CASSA E QUALITÀ DEGLI UTILI
+--------------------------------------------------
+
+Mostrare:
+
+- cash flow operativo;
+- capital expenditure;
+- free cash flow;
+- free cash flow per share;
+- free cash flow margin;
+- cash conversion ratio;
+- operating cash flow / net income;
+- free cash flow / net income;
+- capex / revenue;
+- stock-based compensation;
+- stock-based compensation / revenue;
+- acquisizioni pagate in contanti, quando disponibili.
+
+Formula standard iniziale:
+
+Free Cash Flow = Cash Flow Operativo - Capital Expenditure
+
+Mostrare chiaramente la formula utilizzata.
+
+Creare una sezione “Qualità degli utili” basata su:
+
+- utile netto positivo ma cash flow operativo negativo;
+- cash flow operativo inferiore all’utile netto per più anni;
+- forte crescita dei crediti rispetto ai ricavi;
+- forte crescita delle rimanenze rispetto ai ricavi;
+- stock-based compensation elevata;
+- grandi differenze tra risultati GAAP e adjusted;
+- presenza di utili non ricorrenti;
+- capitalizzazione elevata di costi;
+- free cash flow persistentemente negativo.
+
+Classificare la qualità degli utili come:
+
+- Alta
+- Adeguata
+- Debole
+- Molto debole
+
+--------------------------------------------------
+7. SOLIDITÀ FINANZIARIA
+--------------------------------------------------
+
+Calcolare:
+
+- cash and cash equivalents;
+- total debt;
+- net debt;
+- net cash;
+- debt / equity;
+- debt / assets;
+- net debt / EBITDA;
+- current ratio;
+- quick ratio;
+- interest coverage;
+- EBIT / interest expense;
+- operating cash flow / total debt;
+- cash / short-term debt;
+- Altman Z-Score, solo quando applicabile;
+- goodwill / total assets;
+- intangible assets / total assets.
+
+Mostrare chiaramente quando net debt / EBITDA non è significativo:
+
+- EBITDA negativo;
+- debito nullo;
+- net cash;
+- dati mancanti.
+
+Segnali d’allarme:
+
+- patrimonio netto negativo;
+- current ratio inferiore a 1;
+- interest coverage inferiore a 2;
+- net debt / EBITDA elevato rispetto al settore;
+- forte crescita del debito;
+- scadenze del debito concentrate;
+- liquidità insufficiente rispetto alle obbligazioni di breve termine;
+- goodwill molto elevato;
+- aumento di capitale ricorrente.
+
+Le soglie non devono essere universali: confrontarle sempre con settore, industria e modello di business.
+
+--------------------------------------------------
+8. EFFICIENZA DEL CAPITALE
+--------------------------------------------------
+
+Calcolare:
+
+- ROIC;
+- WACC, se disponibile o stimabile;
+- spread ROIC - WACC;
+- asset turnover;
+- inventory turnover;
+- receivables turnover;
+- days sales outstanding;
+- days inventory outstanding;
+- days payable outstanding;
+- cash conversion cycle;
+- reinvestment rate;
+- incremental return on invested capital, se i dati sono sufficienti.
+
+Interpretazione:
+
+- ROIC superiore al WACC: possibile creazione di valore;
+- ROIC inferiore al WACC: possibile distruzione di valore;
+- ROIC in aumento o diminuzione;
+- confronto con peer e storico.
+
+Utilizzare una metodologia coerente per il capitale investito.
+
+Esempio:
+
+Invested Capital =
+Total Equity
++ Interest-Bearing Debt
+- Cash and Cash Equivalents
+
+NOPAT =
+Operating Income × (1 - Normalized Tax Rate)
+
+ROIC =
+NOPAT / Average Invested Capital
+
+Mostrare la metodologia nel glossario.
+
+--------------------------------------------------
+9. VALUTAZIONE
+--------------------------------------------------
+
+Calcolare, quando significativi:
+
+MULTIPLI EQUITY
+
+- P/E TTM;
+- forward P/E;
+- PEG ratio;
+- price / sales;
+- price / book;
+- price / tangible book;
+- price / free cash flow;
+- dividend yield;
+- shareholder yield.
+
+MULTIPLI ENTERPRISE VALUE
+
+- EV / revenue;
+- EV / EBITDA;
+- EV / EBIT;
+- EV / free cash flow.
+
+PER-SHARE E DILUIZIONE
+
+- EPS diluito;
+- free cash flow per share;
+- book value per share;
+- crescita del numero di azioni;
+- diluizione a 1, 3 e 5 anni;
+- buyback yield.
+
+Per ogni multiplo mostrare:
+
+1. valore corrente;
+2. mediana dei competitor;
+3. media dei competitor;
+4. percentile nel peer group;
+5. mediana storica dell’azienda a 3 e 5 anni;
+6. premio o sconto rispetto ai competitor;
+7. premio o sconto rispetto alla propria storia.
+
+Formula:
+
+Premium/Discount vs Peer Median =
+(Current Multiple / Peer Median - 1) × 100
+
+Interpretazione:
+
+- sconto superiore al 20%;
+- sconto tra 5% e 20%;
+- in linea, tra -5% e +5%;
+- premio tra 5% e 20%;
+- premio superiore al 20%.
+
+Non concludere automaticamente che un titolo a sconto sia sottovalutato.
+
+Prima di classificare la valutazione, considerare:
+
+- crescita;
+- margini;
+- ROIC;
+- indebitamento;
+- qualità del business;
+- volatilità degli utili;
+- rischi specifici.
+
+Un multiplo più alto può essere giustificato da crescita, redditività e ritorni sul capitale superiori.
+
+--------------------------------------------------
+10. FAIR VALUE E RANGE DI VALUTAZIONE
+--------------------------------------------------
+
+Creare una stima prudente del fair value con più metodi, senza mostrare un singolo prezzo come verità assoluta.
+
+Metodi disponibili:
+
+1. valutazione relativa rispetto ai peer;
+2. valutazione rispetto ai multipli storici;
+3. DCF semplificato;
+4. reverse DCF.
+
+Mostrare sempre tre scenari:
+
+- Bear case
+- Base case
+- Bull case
+
+Per ogni scenario mostrare:
+
+- crescita dei ricavi;
+- margine operativo o FCF margin;
+- periodo di previsione;
+- terminal growth;
+- discount rate;
+- valore intrinseco stimato;
+- upside/downside rispetto al prezzo attuale.
+
+DCF:
+
+Enterprise Value =
+Somma dei free cash flow attualizzati
++ terminal value attualizzato
+
+Equity Value =
+Enterprise Value
+- Debt
++ Cash
+- Minority Interests
++ Non-operating Assets, quando disponibili
+
+Fair Value per Share =
+Equity Value / Diluted Shares Outstanding
+
+Regole DCF:
+
+- rendere tutte le assunzioni modificabili;
+- non usare una crescita terminale irrealistica;
+- mostrare una sensitivity table;
+- mostrare almeno discount rate vs terminal growth;
+- non calcolare il DCF quando i dati sono troppo instabili senza mostrare un avviso;
+- usare normalized free cash flow quando l’ultimo anno contiene elementi eccezionali.
+
+Reverse DCF:
+
+Calcolare quale crescita o margine futuro è implicito nel prezzo corrente.
+
+Mostrare una frase simile:
+
+“Il prezzo attuale sembra incorporare una crescita media dei ricavi del X% per i prossimi Y anni e un margine operativo terminale del Z%.”
+
+--------------------------------------------------
+11. SELEZIONE DEI COMPETITOR
+--------------------------------------------------
+
+Creare un peer group composto idealmente da 5–10 società.
+
+Selezionare i competitor usando:
+
+- stessa industria;
+- modello di business simile;
+- area geografica;
+- dimensione;
+- fonti di ricavo;
+- tasso di crescita;
+- profilo di marginalità.
+
+Non selezionare i peer esclusivamente perché appartengono allo stesso settore generico.
+
+Mostrare all’utente:
+
+- competitor selezionati;
+- motivazione della selezione;
+- possibilità di aggiungere o rimuovere competitor;
+- numero di aziende usate nel confronto;
+- eventuali peer esclusi per dati insufficienti.
+
+Creare una tabella comparativa con:
+
+- market cap;
+- revenue growth;
+- gross margin;
+- operating margin;
+- FCF margin;
+- ROIC;
+- net debt / EBITDA;
+- P/E;
+- EV / EBITDA;
+- EV / sales;
+- price / FCF.
+
+Evidenziare:
+
+- valore migliore;
+- valore peggiore;
+- mediana;
+- posizione dell’azienda;
+- percentile dell’azienda.
+
+Per ratio nei quali “più basso” non è sempre “migliore”, non usare automaticamente verde e rosso.
+
+--------------------------------------------------
+12. NORMALIZZAZIONE PER SETTORE
+--------------------------------------------------
+
+Adattare automaticamente le metriche al tipo di azienda.
+
+SAAS E SOFTWARE
+
+Aggiungere, quando disponibili:
+
+- annual recurring revenue;
+- ARR growth;
+- net revenue retention;
+- gross retention;
+- remaining performance obligations;
+- billings growth;
+- deferred revenue growth;
+- Rule of 40;
+- sales efficiency;
+- stock-based compensation / revenue;
+- gross margin;
+- FCF margin.
+
+Rule of 40 =
+Revenue Growth % + Free Cash Flow Margin %
+
+Non usare EBITDA adjusted al posto del free cash flow senza segnalarlo.
+
+BANCHE
+
+Usare principalmente:
+
+- net interest margin;
+- CET1 ratio;
+- return on tangible equity;
+- efficiency ratio;
+- non-performing loans;
+- loan-loss provisions;
+- price / book;
+- price / tangible book;
+- P/E;
+- deposit growth;
+- loan growth.
+
+Per le banche non usare come indicatori centrali:
+
+- EV / EBITDA;
+- current ratio;
+- net debt / EBITDA.
+
+ASSICURAZIONI
+
+Usare:
+
+- combined ratio;
+- loss ratio;
+- expense ratio;
+- book value growth;
+- ROE;
+- solvency ratio;
+- P/B;
+- P/E.
+
+REIT
+
+Usare:
+
+- FFO;
+- AFFO;
+- price / FFO;
+- price / AFFO;
+- NAV premium/discount;
+- occupancy;
+- same-store NOI growth;
+- debt / EBITDAre;
+- interest coverage;
+- dividend payout su AFFO.
+
+ENERGIA E COMMODITIES
+
+Usare:
+
+- production growth;
+- realized price;
+- lifting cost;
+- reserve replacement;
+- proved reserves;
+- free cash flow yield;
+- net debt;
+- break-even price;
+- EV / EBITDA normalizzato sul ciclo.
+
+INDUSTRIALI
+
+Aggiungere:
+
+- backlog;
+- book-to-bill;
+- organic growth;
+- capex intensity;
+- inventory;
+- operating leverage.
+
+RETAIL
+
+Aggiungere:
+
+- same-store sales;
+- inventory growth;
+- gross margin;
+- store growth;
+- revenue per store;
+- inventory turnover.
+
+BIOTECH PRE-REVENUE
+
+Non utilizzare P/E o EBITDA.
+
+Mostrare:
+
+- cash runway;
+- cash burn;
+- pipeline;
+- fase dei trial;
+- prossime milestone;
+- probabilità e rischi regolatori;
+- diluizione potenziale.
+
+--------------------------------------------------
+13. SCORE FONDAMENTALE
+--------------------------------------------------
+
+Creare un sistema trasparente e configurabile.
+
+Pesi generali iniziali:
+
+- Crescita: 20%
+- Redditività: 20%
+- Generazione di cassa: 20%
+- Solidità finanziaria: 15%
+- Efficienza del capitale: 10%
+- Valutazione: 15%
+
+Adattare i pesi al settore.
+
+Esempio per una banca:
+
+- Crescita: 15%
+- Redditività: 25%
+- Qualità del credito e capitale: 30%
+- Efficienza: 15%
+- Valutazione: 15%
+
+Esempio per un SaaS in forte crescita:
+
+- Crescita: 25%
+- Redditività e margini: 15%
+- Generazione di cassa: 20%
+- Solidità finanziaria: 10%
+- Efficienza: 15%
+- Valutazione: 15%
+
+Ogni sottopunteggio deve basarsi principalmente sul percentile rispetto ai peer e secondariamente sul trend storico.
+
+Esempio:
+
+Metric Score =
+60% Peer Percentile
++ 25% Historical Trend Score
++ 15% Absolute Quality Score
+
+Non assegnare un punteggio quando mancano dati essenziali.
+
+Mostrare:
+
+- data coverage percentage;
+- confidence level;
+- numero di metriche disponibili;
+- numero di metriche mancanti.
+
+Livello di affidabilità:
+
+- Alto: coverage superiore all’85%;
+- Medio: coverage tra 65% e 85%;
+- Basso: coverage inferiore al 65%.
+
+--------------------------------------------------
+14. RED FLAGS
+--------------------------------------------------
+
+Creare una sezione chiamata:
+
+Italiano: “Rischi e segnali d’allarme”
+Inglese: “Risks and red flags”
+
+Controllare:
+
+- ricavi in rallentamento;
+- margini in contrazione;
+- utile in crescita ma cash flow in diminuzione;
+- crediti che crescono più rapidamente dei ricavi;
+- inventario che cresce più rapidamente dei ricavi;
+- stock-based compensation elevata;
+- forte diluizione;
+- aumento del debito;
+- copertura interessi debole;
+- free cash flow negativo;
+- patrimonio netto negativo;
+- goodwill elevato;
+- impairment ricorrenti;
+- dipendenza da pochi clienti;
+- dipendenza da un singolo prodotto;
+- insider selling, se disponibile;
+- auditor change;
+- restatement dei conti;
+- material weakness nei controlli;
+- transazioni con parti correlate;
+- risultati adjusted molto diversi dai risultati reported.
+
+Per ogni red flag mostrare:
+
+- titolo;
+- livello: basso, medio, alto;
+- dato che ha generato il segnale;
+- spiegazione;
+- periodo;
+- fonte.
+
+--------------------------------------------------
+15. POSITIVE SIGNALS
+--------------------------------------------------
+
+Creare anche una sezione:
+
+Italiano: “Punti di forza”
+Inglese: “Fundamental strengths”
+
+Possibili segnali:
+
+- crescita stabile;
+- espansione dei margini;
+- ROIC elevato;
+- ROIC superiore al WACC;
+- net cash;
+- forte generazione di free cash flow;
+- bassa diluizione;
+- buyback sostenibile;
+- debito in diminuzione;
+- ricavi ricorrenti;
+- alta qualità degli utili;
+- valutazione inferiore ai peer con fondamentali comparabili.
+
+--------------------------------------------------
+16. TREND STORICI
+--------------------------------------------------
+
+Mostrare grafici a 5 e 10 anni per:
+
+- revenue;
+- operating income;
+- net income;
+- EPS;
+- operating cash flow;
+- free cash flow;
+- gross margin;
+- operating margin;
+- net margin;
+- ROIC;
+- net debt;
+- shares outstanding;
+- P/E;
+- EV / EBITDA;
+- EV / sales;
+- price / free cash flow.
+
+Consentire la selezione:
+
+- annuale;
+- trimestrale;
+- TTM.
+
+Non mischiare dati annuali, trimestrali e TTM senza etichettarli chiaramente.
+
+--------------------------------------------------
+17. DATI E NORMALIZZAZIONE
+--------------------------------------------------
+
+Creare un financial data adapter astratto, in modo che il data provider possa essere sostituito.
+
+Esempio:
+
+interface FinancialDataProvider {
+  getCompanyProfile(ticker)
+  getMarketData(ticker)
+  getIncomeStatements(ticker, period)
+  getBalanceSheets(ticker, period)
+  getCashFlowStatements(ticker, period)
+  getFinancialRatios(ticker)
+  getPeers(ticker)
+  getEstimates(ticker)
+  getFilings(ticker)
+}
+
+Normalizzare i dati in un modello comune.
+
+Entità suggerite:
+
+CompanyProfile
+MarketSnapshot
+FinancialPeriod
+IncomeStatement
+BalanceSheet
+CashFlowStatement
+FinancialMetric
+ValuationMetric
+PeerCompany
+FundamentalScore
+FundamentalInsight
+DataSource
+
+Gestire:
+
+- GAAP e IFRS;
+- esercizi fiscali non coincidenti con l’anno solare;
+- valute differenti;
+- stock split;
+- restatement;
+- acquisizioni;
+- discontinued operations;
+- dati TTM;
+- dati mancanti;
+- risultati reported e adjusted.
+
+Non confrontare direttamente valori assoluti in valute diverse senza conversione.
+
+Per i ratio, preferire valori calcolati localmente dai dati finanziari normalizzati, invece di accettare ratio già calcolati dal provider senza verifica.
+
+--------------------------------------------------
+18. FONTI
+--------------------------------------------------
+
+Per ogni dato mostrare un link o riferimento alla fonte.
+
+Ordine di preferenza:
+
+1. filing regolamentari;
+2. dati strutturati XBRL;
+3. investor relations;
+4. provider finanziari;
+5. stime degli analisti.
+
+Per le società USA, prevedere l’integrazione con SEC EDGAR e Company Facts.
+
+Per le società europee, progettare il sistema in modo da poter integrare filing IFRS e provider esterni.
+
+Mostrare:
+
+- source name;
+- filing type;
+- filing date;
+- fiscal period;
+- access date.
+
+Non usare dati stimati come se fossero risultati riportati.
+
+--------------------------------------------------
+19. NON-GAAP E METRICHE ADJUSTED
+--------------------------------------------------
+
+Separare sempre:
+
+- GAAP/IFRS reported;
+- non-GAAP/adjusted;
+- valori calcolati internamente.
+
+Quando viene mostrato EBITDA adjusted, adjusted EPS o adjusted free cash flow:
+
+- mostrare la riconciliazione, se disponibile;
+- indicare gli elementi esclusi;
+- evidenziare aggiustamenti ricorrenti;
+- non trattare stock-based compensation come irrilevante;
+- non sostituire automaticamente i risultati reported.
+
+Aggiungere un warning quando una società esclude ripetutamente costi “one-off”.
+
+--------------------------------------------------
+20. AI EXPLANATION ENGINE
+--------------------------------------------------
+
+Il modello AI deve ricevere un JSON strutturato simile a:
+
+{
+  "company": {},
+  "marketSnapshot": {},
+  "growth": {},
+  "profitability": {},
+  "cashFlow": {},
+  "balanceSheet": {},
+  "capitalEfficiency": {},
+  "valuation": {},
+  "peerComparison": {},
+  "historicalComparison": {},
+  "redFlags": [],
+  "strengths": [],
+  "dataCoverage": {},
+  "sources": []
+}
+
+Prompt di sistema dell’AI:
+
+“Sei un analista finanziario educativo. Devi spiegare esclusivamente i dati contenuti nell’input. Non inventare dati, competitor, previsioni o motivazioni non presenti nell’input. Distingui fatti, stime e interpretazioni. Quando un dato è assente, dichiaralo. Non fornire raccomandazioni personalizzate di investimento. Non prevedere con certezza la direzione futura del prezzo. Confronta l’azienda con il peer group e con la propria storia. Evidenzia sia aspetti positivi sia rischi.”
+
+Output AI richiesto:
+
+{
+  "summary": "",
+  "businessHealth": "",
+  "growthAnalysis": "",
+  "profitabilityAnalysis": "",
+  "cashFlowAnalysis": "",
+  "balanceSheetAnalysis": "",
+  "valuationAnalysis": "",
+  "peerAnalysis": "",
+  "strengths": [],
+  "risks": [],
+  "conclusion": "",
+  "confidence": ""
+}
+
+L’output deve essere generato nella lingua selezionata dall’utente.
+
+--------------------------------------------------
+21. TESTI EDUCATIVI E GLOSSARIO
+--------------------------------------------------
+
+Aggiungere un tooltip per ogni ratio.
+
+Ogni tooltip deve contenere:
+
+- definizione;
+- formula;
+- interpretazione;
+- limiti;
+- indicazione se valori maggiori o minori sono generalmente preferibili;
+- casi nei quali il ratio non è applicabile.
+
+Esempio:
+
+ROIC
+
+Definizione:
+Misura il rendimento operativo generato sul capitale investito nel business.
+
+Formula:
+NOPAT / Capitale investito medio.
+
+Interpretazione:
+Un ROIC stabilmente superiore al costo del capitale può indicare che l’azienda sta creando valore.
+
+Limiti:
+Può essere distorto da acquisizioni, goodwill, differenze contabili o attività molto cicliche.
+
+--------------------------------------------------
+22. UX DELLA VALUTAZIONE
+--------------------------------------------------
+
+Evitare una singola etichetta semplicistica “sottovalutata” o “sopravvalutata”.
+
+Usare una matrice 2x2:
+
+Asse orizzontale:
+Valutazione relativa, da economica a costosa.
+
+Asse verticale:
+Qualità fondamentale, da debole a forte.
+
+Quadranti:
+
+- Qualità forte + valutazione economica:
+  “Fondamentali forti a valutazione contenuta”
+
+- Qualità forte + valutazione costosa:
+  “Azienda di qualità con aspettative elevate”
+
+- Qualità debole + valutazione economica:
+  “Possibile value trap”
+
+- Qualità debole + valutazione costosa:
+  “Profilo rischio/rendimento sfavorevole”
+
+La posizione deve essere calcolata usando peer percentile, storico e score fondamentale.
+
+--------------------------------------------------
+23. STATI DI ERRORE
+--------------------------------------------------
+
+Gestire esplicitamente:
+
+- ticker non trovato;
+- dati finanziari insufficienti;
+- peer group insufficiente;
+- azienda pre-revenue;
+- patrimonio netto negativo;
+- EBITDA negativo;
+- free cash flow negativo;
+- multipli non significativi;
+- dati non aggiornati;
+- provider temporaneamente non disponibile;
+- valuta non supportata;
+- filing restated.
+
+Non mostrare zero quando il dato è in realtà assente.
+
+Usare:
+
+- null nel backend;
+- “N/D” in italiano;
+- “N/A” in inglese.
+
+--------------------------------------------------
+24. DISCLAIMER
+--------------------------------------------------
+
+Mostrare in fondo alla pagina:
+
+Italiano:
+“Questa analisi ha finalità esclusivamente informative ed educative e non costituisce consulenza finanziaria, fiscale o legale. I dati possono contenere errori, ritardi o omissioni. Le stime di fair value dipendono dalle ipotesi utilizzate e non rappresentano una previsione certa del prezzo futuro.”
+
+Inglese:
+“This analysis is provided solely for informational and educational purposes and does not constitute financial, tax or legal advice. Data may contain errors, delays or omissions. Fair-value estimates depend on the assumptions used and do not represent a certain prediction of future prices.”
+
+--------------------------------------------------
+25. IMPLEMENTAZIONE IN FASI
+--------------------------------------------------
+
+Implementare in questo ordine:
+
+FASE 1 — MVP
+
+- navigazione analisi tecnica/fondamentale;
+- company profile;
+- bilanci storici;
+- crescita;
+- margini;
+- cash flow;
+- debito;
+- ratio principali;
+- peer comparison;
+- riepilogo AI;
+- fonti;
+- lingua IT/EN.
+
+FASE 2
+
+- score fondamentale;
+- red flags;
+- grafici storici;
+- fair value relativo;
+- mediana storica dei multipli;
+- peer group modificabile.
+
+FASE 3
+
+- DCF;
+- reverse DCF;
+- sensitivity analysis;
+- metriche specifiche per settore;
+- analisi dei filing;
+- estrazione dei rischi;
+- qualità degli utili avanzata.
+
+Prima di scrivere il codice:
+
+1. analizza il progetto esistente;
+2. identifica stack, componenti UI, database e data provider già presenti;
+3. proponi il piano tecnico;
+4. elenca i file da creare o modificare;
+5. definisci il modello dati;
+6. definisci quali metriche sono disponibili con il provider attuale;
+7. segnala eventuali API aggiuntive necessarie;
+8. implementa la FASE 1 senza rompere la sezione di analisi tecnica.
+
+Crea componenti riutilizzabili, codice tipizzato, gestione degli errori, caching e test per le formule finanziarie.

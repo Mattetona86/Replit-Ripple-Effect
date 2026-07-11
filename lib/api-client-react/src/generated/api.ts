@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  FundamentalAnalysis,
+  GetFundamentalAnalysisParams,
   GetStockAnalysisParams,
   HealthStatus,
   SaveAnalysisRequest,
@@ -206,6 +208,90 @@ export function useSearchTickers<TData = Awaited<ReturnType<typeof searchTickers
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getSearchTickersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetFundamentalAnalysisUrl = (params: GetFundamentalAnalysisParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/market/stocks/fundamental-analysis?${stringifiedParams}` : `/api/market/stocks/fundamental-analysis`
+}
+
+/**
+ * @summary Fundamental analysis with scores, metrics, peer comparison, and AI explanation
+ */
+export const getFundamentalAnalysis = async (params: GetFundamentalAnalysisParams, options?: RequestInit): Promise<FundamentalAnalysis> => {
+
+  return customFetch<FundamentalAnalysis>(getGetFundamentalAnalysisUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFundamentalAnalysisQueryKey = (params?: GetFundamentalAnalysisParams,) => {
+    return [
+    `/api/market/stocks/fundamental-analysis`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetFundamentalAnalysisQueryOptions = <TData = Awaited<ReturnType<typeof getFundamentalAnalysis>>, TError = ErrorType<void>>(params: GetFundamentalAnalysisParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFundamentalAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFundamentalAnalysisQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFundamentalAnalysis>>> = ({ signal }) => getFundamentalAnalysis(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFundamentalAnalysis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFundamentalAnalysisQueryResult = NonNullable<Awaited<ReturnType<typeof getFundamentalAnalysis>>>
+export type GetFundamentalAnalysisQueryError = ErrorType<void>
+
+
+/**
+ * @summary Fundamental analysis with scores, metrics, peer comparison, and AI explanation
+ */
+
+export function useGetFundamentalAnalysis<TData = Awaited<ReturnType<typeof getFundamentalAnalysis>>, TError = ErrorType<void>>(
+ params: GetFundamentalAnalysisParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFundamentalAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFundamentalAnalysisQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

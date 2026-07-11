@@ -36,6 +36,427 @@ export const SearchTickersResponse = zod.array(SearchTickersResponseItem)
 
 
 /**
+ * @summary Fundamental analysis with scores, metrics, peer comparison, and AI explanation
+ */
+export const GetFundamentalAnalysisQueryParams = zod.object({
+  "symbol": zod.coerce.string(),
+  "language": zod.enum(['en', 'it']).optional()
+})
+
+export const GetFundamentalAnalysisResponse = zod.object({
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "sector": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "currency": zod.string(),
+  "exchange": zod.string(),
+  "logoUrl": zod.string().nullish(),
+  "lastPrice": zod.number(),
+  "marketCap": zod.number().nullish(),
+  "enterpriseValue": zod.number().nullish(),
+  "asOf": zod.string(),
+  "lastFilingDate": zod.string().nullish(),
+  "fiscalYearEnd": zod.string().nullish(),
+  "scores": zod.object({
+  "growth": zod.object({
+  "score": zod.number(),
+  "label": zod.enum(['very_strong', 'strong', 'neutral', 'weak', 'very_weak']),
+  "labelEn": zod.string(),
+  "labelIt": zod.string(),
+  "keyDrivers": zod.array(zod.string())
+}),
+  "profitability": zod.object({
+  "score": zod.number(),
+  "label": zod.enum(['very_strong', 'strong', 'neutral', 'weak', 'very_weak']),
+  "labelEn": zod.string(),
+  "labelIt": zod.string(),
+  "keyDrivers": zod.array(zod.string())
+}),
+  "cashFlow": zod.object({
+  "score": zod.number(),
+  "label": zod.enum(['very_strong', 'strong', 'neutral', 'weak', 'very_weak']),
+  "labelEn": zod.string(),
+  "labelIt": zod.string(),
+  "keyDrivers": zod.array(zod.string())
+}),
+  "financialStrength": zod.object({
+  "score": zod.number(),
+  "label": zod.enum(['very_strong', 'strong', 'neutral', 'weak', 'very_weak']),
+  "labelEn": zod.string(),
+  "labelIt": zod.string(),
+  "keyDrivers": zod.array(zod.string())
+}),
+  "capitalEfficiency": zod.object({
+  "score": zod.number(),
+  "label": zod.enum(['very_strong', 'strong', 'neutral', 'weak', 'very_weak']),
+  "labelEn": zod.string(),
+  "labelIt": zod.string(),
+  "keyDrivers": zod.array(zod.string())
+}),
+  "valuation": zod.object({
+  "score": zod.number(),
+  "label": zod.enum(['very_strong', 'strong', 'neutral', 'weak', 'very_weak']),
+  "labelEn": zod.string(),
+  "labelIt": zod.string(),
+  "keyDrivers": zod.array(zod.string())
+}),
+  "overall": zod.number(),
+  "overallLabel": zod.enum(['very_strong', 'strong', 'neutral', 'weak', 'very_weak']),
+  "overallLabelEn": zod.string(),
+  "overallLabelIt": zod.string(),
+  "confidenceLevel": zod.enum(['high', 'medium', 'low']),
+  "coveragePct": zod.number(),
+  "metricsAvailable": zod.number(),
+  "metricsTotal": zod.number()
+}),
+  "growth": zod.object({
+  "revenueTtm": zod.number().nullish(),
+  "revenueYoy": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "revenue3yCagr": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "revenue5yCagr": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "revenueQoQ": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "revenueYoYLatestQ": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "epsDilutedTtm": zod.number().nullish(),
+  "epsYoy": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "eps3yCagr": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "operatingIncomeYoy": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "netIncomeYoy": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "ocfYoy": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "fcfYoy": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+}),
+  "fcf3yCagr": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "trend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]).optional(),
+  "isNm": zod.boolean()
+})
+}),
+  "profitability": zod.object({
+  "grossMarginTtm": zod.number().nullish(),
+  "grossMarginLastFy": zod.number().nullish(),
+  "grossMargin3yAvg": zod.number().nullish(),
+  "grossMarginTrend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]),
+  "grossMarginVsPeers": zod.number().nullish(),
+  "operatingMarginTtm": zod.number().nullish(),
+  "operatingMarginLastFy": zod.number().nullish(),
+  "operatingMargin3yAvg": zod.number().nullish(),
+  "operatingMarginTrend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]),
+  "operatingMarginVsPeers": zod.number().nullish(),
+  "ebitdaMarginTtm": zod.number().nullish(),
+  "netMarginTtm": zod.number().nullish(),
+  "netMarginLastFy": zod.number().nullish(),
+  "netMargin3yAvg": zod.number().nullish(),
+  "netMarginTrend": zod.union([zod.enum(['improving', 'declining', 'stable']),zod.null()]),
+  "fcfMarginTtm": zod.number().nullish(),
+  "roa": zod.number().nullish(),
+  "roe": zod.number().nullish(),
+  "roic": zod.number().nullish(),
+  "roeWarning": zod.string().nullish(),
+  "peerGrossMarginMedian": zod.number().nullish(),
+  "peerOperatingMarginMedian": zod.number().nullish(),
+  "peerRoicMedian": zod.number().nullish()
+}),
+  "cashFlow": zod.object({
+  "ocfTtm": zod.number().nullish(),
+  "capexTtm": zod.number().nullish(),
+  "fcfTtm": zod.number().nullish(),
+  "fcfPerShareTtm": zod.number().nullish(),
+  "fcfMarginTtm": zod.number().nullish(),
+  "cashConversionRatio": zod.number().nullish(),
+  "ocfToNetIncome": zod.number().nullish(),
+  "fcfToNetIncome": zod.number().nullish(),
+  "capexToRevenue": zod.number().nullish(),
+  "sbcTtm": zod.number().nullish(),
+  "sbcToRevenueTtm": zod.number().nullish(),
+  "earningsQuality": zod.enum(['high', 'adequate', 'weak', 'very_weak']),
+  "earningsQualitySignals": zod.array(zod.string())
+}),
+  "financialStrength": zod.object({
+  "cash": zod.number().nullish(),
+  "totalDebt": zod.number().nullish(),
+  "netDebt": zod.number().nullish(),
+  "isNetCash": zod.boolean(),
+  "debtToEquity": zod.number().nullish(),
+  "debtToAssets": zod.number().nullish(),
+  "netDebtToEbitda": zod.number().nullish(),
+  "netDebtToEbitdaIsNm": zod.boolean(),
+  "currentRatio": zod.number().nullish(),
+  "quickRatio": zod.number().nullish(),
+  "interestCoverage": zod.number().nullish(),
+  "ocfToDebt": zod.number().nullish(),
+  "goodwillToAssets": zod.number().nullish(),
+  "intangibleToAssets": zod.number().nullish()
+}),
+  "capitalEfficiency": zod.object({
+  "roic": zod.number().nullish(),
+  "assetTurnover": zod.number().nullish(),
+  "inventoryTurnover": zod.number().nullish(),
+  "receivablesTurnover": zod.number().nullish(),
+  "dso": zod.number().nullish(),
+  "dio": zod.number().nullish(),
+  "dpo": zod.number().nullish(),
+  "cashConversionCycle": zod.number().nullish()
+}),
+  "valuation": zod.object({
+  "pe": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "forwardPe": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "ps": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "pb": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "pFcf": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "evRevenue": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "evEbitda": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "evEbit": zod.object({
+  "value": zod.number().nullish(),
+  "peerMedian": zod.number().nullish(),
+  "peerPercentile": zod.number().nullish(),
+  "historicalMedian3y": zod.number().nullish(),
+  "historicalMedian5y": zod.number().nullish(),
+  "vsPeers": zod.number().nullish(),
+  "vsHistory3y": zod.number().nullish()
+}),
+  "dividendYield": zod.number().nullish(),
+  "buybackYield": zod.number().nullish(),
+  "sharesOutstanding": zod.number().nullish(),
+  "dilution1y": zod.number().nullish(),
+  "dilution3y": zod.number().nullish(),
+  "valuationMatrix": zod.object({
+  "qualityScore": zod.number(),
+  "valuationScore": zod.number(),
+  "quadrant": zod.enum(['quality_cheap', 'quality_expensive', 'weak_cheap', 'weak_expensive']),
+  "label": zod.string(),
+  "labelIt": zod.string()
+})
+}),
+  "peers": zod.object({
+  "peers": zod.array(zod.object({
+  "symbol": zod.string(),
+  "name": zod.string(),
+  "marketCap": zod.number().nullish(),
+  "revenueGrowthYoy": zod.number().nullish(),
+  "grossMargin": zod.number().nullish(),
+  "operatingMargin": zod.number().nullish(),
+  "fcfMargin": zod.number().nullish(),
+  "roic": zod.number().nullish(),
+  "netDebtToEbitda": zod.number().nullish(),
+  "pe": zod.number().nullish(),
+  "evToEbitda": zod.number().nullish(),
+  "evToSales": zod.number().nullish(),
+  "priceToFcf": zod.number().nullish()
+})),
+  "peerGroupSize": zod.number(),
+  "excludedCount": zod.number()
+}),
+  "redFlags": zod.array(zod.object({
+  "key": zod.string(),
+  "titleEn": zod.string(),
+  "titleIt": zod.string(),
+  "severity": zod.enum(['low', 'medium', 'high']),
+  "dataPoint": zod.string(),
+  "explanationEn": zod.string(),
+  "explanationIt": zod.string(),
+  "period": zod.string()
+})),
+  "strengths": zod.array(zod.object({
+  "key": zod.string(),
+  "titleEn": zod.string(),
+  "titleIt": zod.string(),
+  "dataPoint": zod.string(),
+  "explanationEn": zod.string(),
+  "explanationIt": zod.string()
+})),
+  "historical": zod.object({
+  "revenue": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "operatingIncome": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "netIncome": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "eps": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "ocf": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "fcf": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "grossMargin": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "operatingMargin": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "netMargin": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "netDebt": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+})),
+  "sharesOutstanding": zod.array(zod.object({
+  "year": zod.string(),
+  "value": zod.number().nullish()
+}))
+}),
+  "explanation": zod.object({
+  "summary": zod.string(),
+  "growthAnalysis": zod.string(),
+  "profitabilityAnalysis": zod.string(),
+  "cashFlowAnalysis": zod.string(),
+  "balanceSheetAnalysis": zod.string(),
+  "valuationAnalysis": zod.string(),
+  "peerAnalysis": zod.string(),
+  "strengths": zod.array(zod.string()),
+  "risks": zod.array(zod.string()),
+  "conclusion": zod.string(),
+  "disclaimer": zod.string()
+}),
+  "dataCoverage": zod.object({
+  "coveragePct": zod.number(),
+  "confidenceLevel": zod.enum(['high', 'medium', 'low']),
+  "metricsAvailable": zod.number(),
+  "metricsTotal": zod.number(),
+  "missingAreas": zod.array(zod.string())
+})
+})
+
+
+/**
  * @summary Computed price series, technical indicators, and plain-language educational read for a ticker
  */
 export const GetStockAnalysisQueryParams = zod.object({
