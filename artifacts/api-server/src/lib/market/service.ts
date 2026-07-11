@@ -1,7 +1,6 @@
 import { LRUCache } from "lru-cache";
+import yahooFinance from "yahoo-finance2";
 import {
-  searchTickers as fmpSearchTickers,
-  searchByName as fmpSearchByName,
   getQuote,
   getDailyHistory,
   getIntradayHistory,
@@ -64,24 +63,26 @@ export async function searchTickers(query: string): Promise<TickerSearchResult[]
   const cached = searchCache.get(query);
   if (cached) return cached;
 
-  const US_EXCHANGES = new Set(["NASDAQ", "NYSE", "AMEX", "NYSE American", "NYSE Arca", "BATS", "CBOE"]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let result: any;
+  try {
+    result = await yahooFinance.search(query, { quotesCount: 10, newsCount: 0 });
+  } catch {
+    result = { quotes: [] };
+  }
 
-  // Users often type a company name ("Tesla") rather than the exact ticker
-  // ("TSLA"), so query both the symbol-matching and name-matching FMP
-  // endpoints and merge the results, preferring the symbol match's ordering.
-  const [bySymbol, byName] = await Promise.all([
-    fmpSearchTickers(query),
-    fmpSearchByName(query),
-  ]);
+  const EQUITY_TYPES = new Set(["EQUITY", "ETF"]);
+  const US_EXCHANGES = new Set(["NMS", "NYQ", "NGM", "NCM", "PCX", "ASE", "BTS", "NASDAQ", "NYSE", "AMEX"]);
 
-  const seen = new Set<string>();
   const mapped: TickerSearchResult[] = [];
-  for (const r of [...bySymbol, ...byName]) {
-    const exchange = r.exchange ?? r.exchangeFullName;
-    if (!r.symbol || !r.name || !US_EXCHANGES.has(exchange)) continue;
-    if (seen.has(r.symbol)) continue;
-    seen.add(r.symbol);
-    mapped.push({ symbol: r.symbol, name: r.name, exchange });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const q of (result.quotes ?? []) as any[]) {
+    if (!q.symbol || !EQUITY_TYPES.has(q.quoteType)) continue;
+    // Keep only US-listed securities
+    if (q.exchange && !US_EXCHANGES.has(q.exchange)) continue;
+    const name = q.longname ?? q.shortname ?? q.symbol;
+    const exchange = q.exchange ?? "";
+    mapped.push({ symbol: q.symbol, name, exchange });
   }
 
   searchCache.set(query, mapped);
