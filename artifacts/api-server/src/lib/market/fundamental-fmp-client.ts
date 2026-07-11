@@ -295,5 +295,5 @@ export interface FmpAnalystEstimate {
 }
 
 export async function getAnalystEstimates(symbol: string, limit = 4): Promise<FmpAnalystEstimate[]> {
-  return fmpGet<FmpAnalystEstimate[]>("/analyst-estimates", { symbol, limit }).catch(() => []);
+  return fmpGet<FmpAnalystEstimate[]>("/analyst-estimates", { symbol, period: "annual", limit }).catch(() => []);
 }
