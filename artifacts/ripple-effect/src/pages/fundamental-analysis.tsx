@@ -7,6 +7,7 @@ import {
   getSearchTickersQueryKey,
   getGetFundamentalAnalysisQueryKey,
 } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import type {
   FundamentalAnalysis,
   DimensionScore,
@@ -542,6 +543,7 @@ function ExplanationPanel({
 export default function FundamentalAnalysisPage() {
   const { t, language } = useTranslation();
 
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery] = useDebounce(searchQuery, 300);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
@@ -574,6 +576,10 @@ export default function FundamentalAnalysisPage() {
   );
 
   const selectSymbol = (s: string) => {
+    // Remove any cached error/data for this symbol so a fresh request is always made
+    queryClient.removeQueries({
+      queryKey: getGetFundamentalAnalysisQueryKey({ symbol: s, language }),
+    });
     setSelectedSymbol(s);
     setSearchQuery('');
   };
@@ -647,9 +653,26 @@ export default function FundamentalAnalysisPage() {
         {/* ── Loading ──────────────────────────────────────────────────────── */}
         {selectedSymbol && isAnalyzing && (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-sm">
-              <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground leading-relaxed">{t('fa.loading')}</p>
+            <div className="text-center max-w-md bg-card border border-border rounded-2xl p-8 shadow-sm">
+              <div className="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+              <p className="font-semibold text-foreground mb-2">
+                {language === 'it' ? 'Analisi di' : 'Analysing'} <span className="text-primary font-mono">{selectedSymbol}</span>
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-5">{t('fa.loading')}</p>
+              <div className="space-y-2">
+                {[
+                  language === 'it' ? '📊 Download bilanci FMP…' : '📊 Fetching financial statements…',
+                  language === 'it' ? '🔢 Calcolo indicatori e score…' : '🔢 Computing metrics & scores…',
+                  language === 'it' ? '🤖 Generazione spiegazione AI…' : '🤖 Generating AI explanation…',
+                ].map((step) => (
+                  <div key={step} className="text-xs text-muted-foreground/70 flex items-center gap-2">
+                    <span>{step}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground/50 mt-4">
+                {language === 'it' ? 'Circa 30–60 secondi' : 'Takes about 30–60 seconds'}
+              </p>
             </div>
           </div>
         )}
