@@ -1,5 +1,7 @@
 import { LRUCache } from "lru-cache";
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
+const yahooFinance = new YahooFinance();
+import { logger } from "../logger";
 import {
   getQuote,
   getDailyHistory,
@@ -66,22 +68,24 @@ export async function searchTickers(query: string): Promise<TickerSearchResult[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let result: any;
   try {
-    result = await yahooFinance.search(query, { quotesCount: 10, newsCount: 0 });
-  } catch {
+    result = await yahooFinance.search(query, { quotesCount: 10, newsCount: 0 }, { validateResult: false });
+  } catch (err) {
+    logger.warn({ err, query }, "Yahoo Finance search failed");
     result = { quotes: [] };
   }
 
+  logger.info({ query, quotesRaw: result?.quotes?.length ?? 0, first: result?.quotes?.[0] }, "Yahoo search raw count");
+
   const EQUITY_TYPES = new Set(["EQUITY", "ETF"]);
-  const US_EXCHANGES = new Set(["NMS", "NYQ", "NGM", "NCM", "PCX", "ASE", "BTS", "NASDAQ", "NYSE", "AMEX"]);
 
   const mapped: TickerSearchResult[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const q of (result.quotes ?? []) as any[]) {
-    if (!q.symbol || !EQUITY_TYPES.has(q.quoteType)) continue;
-    // Keep only US-listed securities
-    if (q.exchange && !US_EXCHANGES.has(q.exchange)) continue;
+    // Skip non-Yahoo entries (Crunchbase startups etc.) which lack quoteType
+    if (!q.isYahooFinance || !q.symbol) continue;
+    if (!EQUITY_TYPES.has(q.quoteType)) continue;
     const name = q.longname ?? q.shortname ?? q.symbol;
-    const exchange = q.exchange ?? "";
+    const exchange = q.exchDisp ?? q.exchange ?? "";
     mapped.push({ symbol: q.symbol, name, exchange });
   }
 

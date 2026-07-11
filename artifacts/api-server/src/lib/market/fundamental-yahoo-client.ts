@@ -6,7 +6,8 @@
  * Replaces the 12 parallel FMP calls with one round-trip (~1-2 s).
  */
 
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
+const yahooFinance = new YahooFinance();
 import { logger } from "../logger";
 import type {
   FmpProfile,
