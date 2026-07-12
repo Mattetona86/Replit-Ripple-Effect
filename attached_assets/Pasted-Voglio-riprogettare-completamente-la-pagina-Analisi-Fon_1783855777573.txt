@@ -1,0 +1,531 @@
+Voglio riprogettare completamente la pagina “Analisi Fondamentale” attualmente implementata.
+
+L’interfaccia attuale non è utile perché:
+
+- mostra grandi sezioni vuote o chiuse in accordion;
+- nasconde le metriche importanti;
+- dedica troppo spazio all’analisi AI;
+- non mostra il rapporto tra andamento del prezzo e andamento degli utili;
+- non permette di capire rapidamente se il titolo è diventato più o meno caro;
+- mostra conclusioni AI anche quando la copertura dati è insufficiente;
+- non presenta una chiara gerarchia delle informazioni.
+
+L’obiettivo principale della nuova pagina deve essere:
+
+“Aiutare l’utente a capire se il prezzo dell’azione si è mosso in modo coerente con l’evoluzione del business e se la valutazione attuale è più o meno interessante rispetto alla storia dell’azienda e ai competitor.”
+
+NON aggiungere semplicemente altre metriche alla pagina esistente.
+
+Riprogetta la pagina con una struttura decisionale, visuale e immediatamente leggibile.
+
+--------------------------------------------------
+1. STRUTTURA DELLA PARTE SUPERIORE
+--------------------------------------------------
+
+Tutte le informazioni principali devono essere visibili senza aprire accordion.
+
+La prima schermata deve contenere:
+
+1. Header dell’azienda
+2. Cinque card fondamentali
+3. Grafico principale “Prezzo vs Fondamentali”
+4. Sintesi breve dell’analisi
+
+Ridurre drasticamente lo spazio occupato dal pannello AI laterale.
+
+L’analisi AI non deve occupare più del 25–30% della larghezza della pagina desktop.
+
+Preferibilmente mostrare la sintesi AI come card orizzontale sotto le metriche principali, oppure come pannello laterale comprimibile.
+
+--------------------------------------------------
+2. HEADER DELL’AZIENDA
+--------------------------------------------------
+
+Mostrare in modo compatto:
+
+- ticker;
+- nome azienda;
+- settore e industria;
+- prezzo attuale;
+- variazione prezzo a 1 anno;
+- market cap;
+- enterprise value;
+- data dell’ultimo filing;
+- data dell’ultimo aggiornamento dei dati.
+
+Non mostrare informazioni duplicate tra barra di ricerca e company header.
+
+--------------------------------------------------
+3. CINQUE CARD PRINCIPALI
+--------------------------------------------------
+
+Creare una sezione chiamata:
+
+Italiano: “I 5 indicatori chiave”
+Inglese: “5 Key Fundamental Signals”
+
+Mostrare cinque card della stessa dimensione.
+
+CARD 1 — PREZZO VS UTILI
+
+Titolo:
+“Prezzo vs Utili”
+
+Mostrare:
+
+- variazione prezzo 1Y, 3Y e 5Y;
+- variazione EPS diluito TTM negli stessi periodi;
+- differenza tra crescita del prezzo e crescita EPS;
+- classificazione della divergenza.
+
+Formula:
+
+Price-Earnings Divergence =
+Price Change % - EPS Change %
+
+Esempi di classificazione:
+
+- Prezzo sceso, EPS cresciuti:
+  “Valutazione potenzialmente più interessante”
+
+- Prezzo cresciuto meno degli EPS:
+  “Gli utili sono cresciuti più del prezzo”
+
+- Prezzo ed EPS cresciuti in modo simile:
+  “Prezzo in linea con gli utili”
+
+- Prezzo cresciuto più degli EPS:
+  “Espansione della valutazione”
+
+- Prezzo cresciuto mentre gli EPS sono diminuiti:
+  “Divergenza negativa”
+
+Non dichiarare automaticamente che il titolo è sottovalutato.
+
+CARD 2 — VALUTAZIONE
+
+Mostrare:
+
+- P/E attuale;
+- P/E mediano storico a 5 anni;
+- P/E mediano del peer group;
+- premio o sconto rispetto alla storia;
+- premio o sconto rispetto ai peer.
+
+Se il P/E non è significativo, utilizzare:
+
+- EV/EBITDA;
+- Price/FCF;
+- EV/Revenue.
+
+Output sintetico di esempio:
+
+“Più economica della propria storia, ma ancora a premio sui peer.”
+
+CARD 3 — CRESCITA
+
+Mostrare:
+
+- crescita ricavi TTM;
+- CAGR ricavi 3 anni;
+- crescita EPS TTM;
+- crescita free cash flow TTM.
+
+Aggiungere un indicatore:
+
+- Accelerazione;
+- Crescita stabile;
+- Rallentamento;
+- Contrazione;
+- Dati insufficienti.
+
+CARD 4 — QUALITÀ DEL BUSINESS
+
+Mostrare:
+
+- operating margin;
+- FCF margin;
+- ROIC;
+- trend dei margini a 3 anni.
+
+Classificazione:
+
+- Molto forte;
+- Forte;
+- Neutrale;
+- Debole;
+- Molto debole.
+
+La classificazione deve considerare sia il valore assoluto sia il confronto con i peer.
+
+CARD 5 — SOLIDITÀ FINANZIARIA
+
+Mostrare:
+
+- net cash oppure net debt;
+- net debt/EBITDA;
+- interest coverage;
+- variazione delle azioni in circolazione a 3 anni;
+- free cash flow per azione.
+
+Evidenziare chiaramente eventuale diluizione.
+
+--------------------------------------------------
+4. GRAFICO PRINCIPALE: PREZZO VS FONDAMENTALI
+--------------------------------------------------
+
+Aggiungere un grande grafico immediatamente sotto le cinque card.
+
+Titolo:
+
+Italiano:
+“Il prezzo ha seguito il business?”
+
+Inglese:
+“Has the price followed the business?”
+
+Il grafico deve permettere di confrontare:
+
+- prezzo dell’azione;
+- EPS diluito TTM;
+- ricavi per azione;
+- free cash flow per azione;
+- utile netto TTM;
+- book value per share.
+
+Di default selezionare:
+
+- prezzo;
+- EPS diluito TTM.
+
+NORMALIZZAZIONE
+
+Le serie devono essere indicizzate a 100 all’inizio del periodo selezionato.
+
+Esempio:
+
+- prezzo iniziale = 100;
+- EPS iniziale = 100.
+
+In questo modo l’utente può confrontare direttamente la variazione percentuale.
+
+Periodi selezionabili:
+
+- 1Y;
+- 3Y;
+- 5Y;
+- 10Y;
+- Max.
+
+Mostrare al termine del grafico:
+
+- performance prezzo;
+- crescita della metrica fondamentale;
+- divergenza tra le due.
+
+Esempio:
+
+Prezzo: -18%
+EPS: +32%
+Divergenza: -50 punti percentuali
+
+Mostrare una breve interpretazione:
+
+“Negli ultimi tre anni gli utili per azione sono cresciuti, mentre il prezzo è diminuito. Il titolo è quindi diventato meno caro rispetto agli utili, ma è necessario verificare la sostenibilità degli utili e il confronto con i competitor.”
+
+DATI TEMPORALI
+
+Usare dati TTM per EPS, ricavi e cash flow.
+
+Ogni punto trimestrale deve rappresentare:
+
+- somma degli ultimi quattro trimestri per income statement e cash flow;
+- valore del periodo per balance sheet;
+- prezzo alla data corrispondente.
+
+Gestire stock split e restatement.
+
+Non confrontare prezzo giornaliero con dati fondamentali trimestrali senza allineamento temporale.
+
+--------------------------------------------------
+5. GRAFICO DELLA VALUTAZIONE NEL TEMPO
+--------------------------------------------------
+
+Aggiungere un secondo grafico:
+
+Italiano:
+“Quanto è cara oggi rispetto al passato?”
+
+Inglese:
+“How expensive is it versus history?”
+
+Permettere la selezione tra:
+
+- P/E;
+- Forward P/E;
+- EV/EBITDA;
+- Price/FCF;
+- EV/Revenue.
+
+Mostrare:
+
+- andamento storico del multiplo;
+- valore attuale;
+- mediana storica a 5 anni;
+- percentile storico;
+- mediana dei peer;
+- fascia interquartile storica.
+
+Esempio:
+
+P/E attuale: 28x
+Mediana 5 anni: 42x
+Percentile storico: 22°
+Mediana peer: 24x
+
+Interpretazione:
+
+“Il multiplo è vicino ai livelli più bassi della propria storia recente, ma resta leggermente superiore alla mediana dei competitor.”
+
+--------------------------------------------------
+6. CONFRONTO CON I COMPETITOR
+--------------------------------------------------
+
+Creare una tabella compatta, non un’altra serie di accordion.
+
+Colonne principali:
+
+- Azienda;
+- crescita ricavi;
+- crescita EPS;
+- operating margin;
+- FCF margin;
+- ROIC;
+- P/E;
+- EV/EBITDA;
+- Price/FCF;
+- net debt/EBITDA.
+
+Mostrare:
+
+- mediana del peer group;
+- posizione dell’azienda;
+- percentile;
+- premio o sconto.
+
+Consentire all’utente di vedere e modificare il peer group.
+
+Non mostrare il confronto se sono disponibili meno di tre peer realmente comparabili.
+
+In quel caso mostrare:
+
+“Peer group insufficiente per un confronto affidabile.”
+
+--------------------------------------------------
+7. GERARCHIA DELLE INFORMAZIONI
+--------------------------------------------------
+
+Eliminare gli accordion grandi e vuoti dalla parte superiore.
+
+Dopo i grafici principali, organizzare i dettagli in tab o sezioni:
+
+- Crescita;
+- Redditività;
+- Flussi di cassa;
+- Bilancio;
+- Valutazione;
+- Competitor;
+- Rischi.
+
+Gli accordion possono essere utilizzati solo per approfondimenti secondari.
+
+La prima schermata non deve contenere grandi spazi bianchi.
+
+--------------------------------------------------
+8. ANALISI AI
+--------------------------------------------------
+
+L’analisi AI deve interpretare i dati visualizzati, non sostituirli.
+
+Mostrare inizialmente soltanto:
+
+- una headline;
+- una sintesi di massimo 100 parole;
+- tre punti di forza;
+- tre rischi;
+- tre metriche da monitorare.
+
+Le analisi dettagliate possono essere aperte tramite:
+
+“Approfondisci l’analisi”
+
+Non mostrare otto accordion AI contemporaneamente.
+
+L’AI deve focalizzarsi su:
+
+1. prezzo rispetto agli EPS;
+2. evoluzione dei multipli;
+3. crescita del business;
+4. margini e ROIC;
+5. generazione di cassa;
+6. debito e diluizione;
+7. confronto con i peer.
+
+Esempio di output:
+
+“Negli ultimi tre anni il prezzo è diminuito del 18%, mentre l’EPS è cresciuto del 32%. Questo ha determinato una compressione della valutazione. Il P/E è inferiore alla mediana storica dell’azienda, ma rimane superiore alla mediana del settore. I margini operativi sono in contrazione e rappresentano il principale elemento da monitorare.”
+
+--------------------------------------------------
+9. REGOLE SULLA COPERTURA DATI
+--------------------------------------------------
+
+Il sistema attuale mostra un’analisi dettagliata con una copertura dati del 17%. Questo comportamento deve essere corretto.
+
+Regole:
+
+- coverage superiore all’80%:
+  analisi completa;
+
+- coverage tra 60% e 80%:
+  analisi disponibile con avviso;
+
+- coverage tra 40% e 60%:
+  analisi parziale, senza score complessivo;
+
+- coverage inferiore al 40%:
+  non generare conclusioni definitive, fair value o classificazioni.
+
+Con coverage inferiore al 40%, mostrare:
+
+“Dati insufficienti per un’analisi fondamentale affidabile. Sono disponibili solo X delle Y metriche necessarie.”
+
+Mostrare quali dati mancano.
+
+Non trattare i dati mancanti come zero.
+
+--------------------------------------------------
+10. REGOLE DI CALCOLO
+--------------------------------------------------
+
+Calcolare localmente e verificare:
+
+EPS Growth
+Revenue Growth
+FCF Growth
+Margins
+ROIC
+Net Debt
+Net Debt/EBITDA
+Interest Coverage
+Share Dilution
+P/E
+EV/EBITDA
+Price/FCF
+Historical Premium/Discount
+Peer Premium/Discount
+
+Utilizzare valori per azione corretti per stock split.
+
+Per la variazione a 3 e 5 anni, utilizzare:
+
+Current Value / Historical Value - 1
+
+Se il valore storico è negativo oppure prossimo a zero:
+
+- non calcolare una percentuale fuorviante;
+- mostrare “N/M”;
+- descrivere il passaggio da perdita a utile o viceversa.
+
+--------------------------------------------------
+11. DESIGN
+--------------------------------------------------
+
+Mantenere lo stile visuale attuale della piattaforma:
+
+- sfondo chiaro;
+- card bianche;
+- bordi sottili;
+- angoli arrotondati;
+- tipografia esistente;
+- supporto IT/EN.
+
+Migliorare però:
+
+- contrasto;
+- dimensione dei numeri principali;
+- gerarchia tipografica;
+- densità informativa;
+- utilizzo degli spazi;
+- leggibilità dei grafici.
+
+Utilizzare verde e rosso con moderazione.
+
+Verde non significa automaticamente “comprare”.
+Rosso non significa automaticamente “vendere”.
+
+Utilizzare colori neutrali per dati puramente descrittivi.
+
+Ogni card deve mostrare massimo tre o quattro valori principali.
+
+--------------------------------------------------
+12. MOBILE E RESPONSIVE
+--------------------------------------------------
+
+Desktop:
+
+- cinque card sulla stessa riga, se lo spazio lo permette;
+- in alternativa griglia 3 + 2;
+- grafico principale a tutta larghezza;
+- analisi AI laterale comprimibile.
+
+Tablet:
+
+- due card per riga;
+- grafici a tutta larghezza.
+
+Mobile:
+
+- una card per riga;
+- grafici con scroll orizzontale o modalità semplificata;
+- pannello AI sotto i dati.
+
+--------------------------------------------------
+13. PRIORITÀ DI IMPLEMENTAZIONE
+--------------------------------------------------
+
+Implementare in questo ordine:
+
+1. eliminare gli spazi vuoti e gli accordion dalla parte superiore;
+2. creare le cinque card fondamentali;
+3. creare il grafico Prezzo vs EPS indicizzato a 100;
+4. aggiungere la selezione EPS, ricavi per azione e FCF per azione;
+5. creare il grafico storico dei multipli;
+6. ridurre e correggere il pannello AI;
+7. aggiungere il confronto peer;
+8. applicare le regole sulla copertura dati;
+9. aggiungere i dettagli secondari;
+10. verificare responsive design.
+
+Prima di modificare il codice:
+
+- analizza i componenti esistenti;
+- identifica le API e i dati realmente disponibili;
+- elenca i campi mancanti;
+- non usare mock data nella versione finale;
+- non inventare dati quando il provider non li fornisce;
+- mostra uno stato esplicito per dati mancanti;
+- crea componenti riutilizzabili;
+- aggiungi test per formule e trasformazioni temporali;
+- non rompere la pagina di analisi tecnica.
+
+La prima funzionalità da completare e verificare deve essere il grafico:
+
+“Prezzo vs EPS TTM, indicizzati a 100”.
+
+Dopo aver implementato questa prima funzionalità, mostra:
+
+- i file modificati;
+- le formule utilizzate;
+- la struttura dei dati;
+- un esempio con un ticker;
+- eventuali limitazioni del provider.

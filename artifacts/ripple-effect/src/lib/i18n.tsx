@@ -304,6 +304,17 @@ const dict: Dictionary = {
     'fa.disclaimer': 'This analysis is for informational and educational purposes only and does not constitute financial, tax, or legal advice. Data may contain errors, delays, or omissions. Fair value estimates depend on the assumptions used and do not represent a certain prediction of the future price.',
     'fa.roe.warning.negative_equity': 'Warning: ROE computed with negative equity — not meaningful as a quality measure.',
     'fa.roe.warning.high_leverage': 'Note: High ROE partly driven by financial leverage.',
+
+    // New signal card labels
+    'fa.card.valChange': 'Valuation vs History',
+    'fa.card.valuation': 'Valuation Multiples',
+    'fa.card.growth': 'Growth',
+    'fa.card.quality': 'Business Quality',
+    'fa.card.strength': 'Financial Strength',
+    'fa.card.current': 'Current',
+    'fa.card.hist5y': '5Y median',
+    'fa.card.peerMedian': 'Peer median',
+    'fa.card.vsPeers': 'vs peers',
   },
   it: {
     // Navigation
@@ -600,6 +611,17 @@ const dict: Dictionary = {
     'fa.disclaimer': 'Questa analisi ha finalità esclusivamente informative ed educative e non costituisce consulenza finanziaria, fiscale o legale. I dati possono contenere errori, ritardi o omissioni. Le stime di fair value dipendono dalle ipotesi utilizzate e non rappresentano una previsione certa del prezzo futuro.',
     'fa.roe.warning.negative_equity': 'Attenzione: ROE calcolato con patrimonio netto negativo — non significativo come indicatore di qualità.',
     'fa.roe.warning.high_leverage': 'Nota: ROE elevato parzialmente trainato dalla leva finanziaria.',
+
+    // New signal card labels
+    'fa.card.valChange': 'Valutazione vs Storia',
+    'fa.card.valuation': 'Multipli di Valutazione',
+    'fa.card.growth': 'Crescita',
+    'fa.card.quality': 'Qualità del Business',
+    'fa.card.strength': 'Solidità Finanziaria',
+    'fa.card.current': 'Attuale',
+    'fa.card.hist5y': 'Mediana 5 anni',
+    'fa.card.peerMedian': 'Mediana peer',
+    'fa.card.vsPeers': 'vs peer',
   }
 };
 

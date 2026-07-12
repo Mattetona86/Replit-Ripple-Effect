@@ -1,4 +1,17 @@
-import React, { useState } from 'react';
+/**
+ * Analisi Fondamentale — Complete redesign
+ *
+ * Layout priority (document §13):
+ * 1. Company header (compact, all key fields)
+ * 2. Coverage gate
+ * 3. Five key signal cards
+ * 4. "Business Performance" chart — indexed to 100 (EPS, Revenue, FCF, NetIncome)
+ * 5. "Valuation vs History" snapshot chart
+ * 6. Secondary tabs: Growth | Profitability | Cash Flow | Balance Sheet | Valuation | Competitors | Risks
+ * 7. Compact AI panel (headline + summary + 3 strengths + 3 risks)
+ */
+
+import React, { useState, useMemo } from 'react';
 import { Layout } from '@/components/layout';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -10,16 +23,13 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import type {
   FundamentalAnalysis,
-  DimensionScore,
   GrowthMetric,
   ValuationMultiple,
   RedFlag,
   FundamentalStrength,
   HistoricalDataPoint,
   PeerCompanyData,
-  ScoreLabel,
   Trend,
-  EarningsQuality,
 } from '@workspace/api-client-react';
 import { useDebounce } from 'use-debounce';
 import {
@@ -32,6 +42,9 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  ChevronRight,
+  BarChart2,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,9 +63,13 @@ import {
   Tooltip as RechartsTooltip,
   ReferenceLine,
   Cell,
+  Legend,
+  CartesianGrid,
 } from 'recharts';
 
-// ── Format helpers ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Format helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 function fmtN(v: number | null | undefined, decimals = 1): string {
   if (v == null || !isFinite(v)) return '—';
@@ -69,7 +86,7 @@ function fmtPctRaw(v: number | null | undefined, decimals = 1): string {
   return `${v.toFixed(decimals)}%`;
 }
 
-function fmtMoney(v: number | null | undefined, currency = 'USD'): string {
+function fmtMoney(v: number | null | undefined): string {
   if (v == null || !isFinite(v)) return '—';
   const abs = Math.abs(v);
   const sign = v < 0 ? '-' : '';
@@ -85,74 +102,50 @@ function fmtX(v: number | null | undefined, decimals = 1): string {
   return `${v.toFixed(decimals)}x`;
 }
 
-// ── Color helpers ─────────────────────────────────────────────────────────────
-
-function scoreColor(score: number): string {
-  if (score >= 80) return 'text-green-600 dark:text-green-400';
-  if (score >= 65) return 'text-emerald-600 dark:text-emerald-400';
-  if (score >= 50) return 'text-yellow-600 dark:text-yellow-400';
-  if (score >= 35) return 'text-orange-500 dark:text-orange-400';
-  return 'text-red-600 dark:text-red-400';
-}
-
-function scoreBg(score: number): string {
-  if (score >= 80) return 'bg-green-500/10 border-green-500/30';
-  if (score >= 65) return 'bg-emerald-500/10 border-emerald-500/30';
-  if (score >= 50) return 'bg-yellow-500/10 border-yellow-500/30';
-  if (score >= 35) return 'bg-orange-500/10 border-orange-500/30';
-  return 'bg-red-500/10 border-red-500/30';
-}
-
-function scoreBar(score: number): string {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 65) return 'bg-emerald-500';
-  if (score >= 50) return 'bg-yellow-500';
-  if (score >= 35) return 'bg-orange-400';
-  return 'bg-red-500';
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Color helpers  (green/red used sparingly — descriptive, not buy/sell signals)
+// ─────────────────────────────────────────────────────────────────────────────
 
 function pctColor(v: number | null | undefined, higherBetter = true): string {
   if (v == null) return 'text-muted-foreground';
   const positive = higherBetter ? v > 0 : v < 0;
-  if (positive) return 'text-green-600 dark:text-green-400';
-  if ((!higherBetter && v > 0) || (higherBetter && v < 0)) return 'text-red-600 dark:text-red-400';
+  if (positive) return 'text-emerald-600 dark:text-emerald-400';
+  if ((!higherBetter && v > 0) || (higherBetter && v < 0)) return 'text-red-500 dark:text-red-400';
   return 'text-muted-foreground';
 }
 
 function severityColor(s: string): string {
-  if (s === 'high') return 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/30';
-  if (s === 'medium') return 'text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/30';
-  return 'text-yellow-600 dark:text-yellow-500 bg-yellow-500/10 border-yellow-500/30';
+  if (s === 'high') return 'text-red-600 dark:text-red-400 bg-red-500/8 border-red-500/25';
+  if (s === 'medium') return 'text-orange-600 dark:text-orange-400 bg-orange-500/8 border-orange-500/25';
+  return 'text-yellow-600 dark:text-yellow-500 bg-yellow-500/8 border-yellow-500/25';
 }
 
-// ── Small shared components ───────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Small shared components
+// ─────────────────────────────────────────────────────────────────────────────
 
 function TrendIcon({ trend }: { trend: Trend | null | undefined }) {
   if (!trend) return <Minus size={12} className="text-muted-foreground" />;
-  if (trend === 'improving') return <TrendingUp size={12} className="text-green-500" />;
+  if (trend === 'improving') return <TrendingUp size={12} className="text-emerald-500" />;
   if (trend === 'declining') return <TrendingDown size={12} className="text-red-500" />;
   return <Minus size={12} className="text-muted-foreground" />;
 }
 
-function NmBadge({ isNm, children }: { isNm: boolean; children: React.ReactNode }) {
-  if (isNm) {
-    return <span className="text-xs text-muted-foreground italic">N/M</span>;
-  }
-  return <>{children}</>;
+function InfoTip({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Info size={11} className="cursor-help opacity-40 hover:opacity-80 shrink-0" />
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[260px] text-xs">{text}</TooltipContent>
+    </Tooltip>
+  );
 }
 
-function SectionCard({
-  title,
-  children,
-  id,
-}: {
-  title: string;
-  children: React.ReactNode;
-  id?: string;
-}) {
+function SectionCard({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
     <div id={id} className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-border/60 bg-muted/30">
+      <div className="px-5 py-3 border-b border-border/60 bg-muted/20">
         <h3 className="font-semibold text-sm text-foreground">{title}</h3>
       </div>
       <div className="p-4">{children}</div>
@@ -169,40 +162,16 @@ function MetricTable({ rows }: { rows: React.ReactNode }) {
 }
 
 function MetricRow({
-  label,
-  value,
-  sub,
-  peerMedian,
-  peerPercentile,
-  trend,
-  isNm,
-  higherBetter = true,
-  tooltip,
+  label, value, sub, peerMedian, peerPercentile, trend, isNm, higherBetter = true, tooltip,
 }: {
-  label: string;
-  value: React.ReactNode;
-  sub?: string;
-  peerMedian?: number | null;
-  peerPercentile?: number | null;
-  trend?: Trend | null;
-  isNm?: boolean;
-  higherBetter?: boolean;
-  tooltip?: string;
+  label: string; value: React.ReactNode; sub?: string;
+  peerMedian?: number | null; peerPercentile?: number | null;
+  trend?: Trend | null; isNm?: boolean; higherBetter?: boolean; tooltip?: string;
 }) {
   return (
     <tr className="hover:bg-muted/20 transition-colors">
-      <td className="py-2.5 pr-3 text-muted-foreground text-xs w-[38%]">
-        <div className="flex items-center gap-1">
-          {label}
-          {tooltip && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info size={11} className="cursor-help opacity-50 hover:opacity-100" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[260px] text-xs">{tooltip}</TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+      <td className="py-2.5 pr-3 text-muted-foreground text-xs w-[42%]">
+        <div className="flex items-center gap-1">{label}{tooltip && <InfoTip text={tooltip} />}</div>
         {sub && <div className="text-[10px] text-muted-foreground/60 mt-0.5">{sub}</div>}
       </td>
       <td className="py-2.5 pr-3 font-medium text-xs">
@@ -212,17 +181,11 @@ function MetricRow({
         {peerMedian != null ? fmtPctRaw(peerMedian) : '—'}
       </td>
       <td className="py-2.5 pr-2 text-xs">
-        {peerPercentile != null ? (
-          <span className={pctColor(peerPercentile - 50, higherBetter)}>
-            {peerPercentile}th
-          </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
+        {peerPercentile != null
+          ? <span className={pctColor(peerPercentile - 50, higherBetter)}>{peerPercentile}th</span>
+          : <span className="text-muted-foreground">—</span>}
       </td>
-      <td className="py-2.5 text-xs">
-        <TrendIcon trend={trend} />
-      </td>
+      <td className="py-2.5 text-xs"><TrendIcon trend={trend} /></td>
     </tr>
   );
 }
@@ -239,41 +202,20 @@ function MetricTableHeader({ t }: { t: (k: string) => string }) {
   );
 }
 
-// Valuation-specific row with vs-peers and vs-history instead of peer-pct + trend
 function ValMetricRow({
-  label,
-  value,
-  peerMedian,
-  vsPeers,
-  vsHistory3y,
-  tooltip,
+  label, value, peerMedian, vsPeers, vsHistory3y, tooltip,
 }: {
-  label: string;
-  value: number | null | undefined;
-  peerMedian?: number | null;
-  vsPeers?: number | null;
-  vsHistory3y?: number | null;
-  tooltip?: string;
+  label: string; value: number | null | undefined; peerMedian?: number | null;
+  vsPeers?: number | null; vsHistory3y?: number | null; tooltip?: string;
 }) {
   const fmt = (v: number | null | undefined) => {
     if (v == null) return '—';
-    if (Math.abs(v) >= 100) return fmtX(v, 0);
-    return fmtX(v, 1);
+    return Math.abs(v) >= 100 ? fmtX(v, 0) : fmtX(v, 1);
   };
   return (
     <tr className="hover:bg-muted/20 transition-colors">
       <td className="py-2.5 pr-3 text-muted-foreground text-xs w-[32%]">
-        <div className="flex items-center gap-1">
-          {label}
-          {tooltip && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info size={11} className="cursor-help opacity-50 hover:opacity-100" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[260px] text-xs">{tooltip}</TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+        <div className="flex items-center gap-1">{label}{tooltip && <InfoTip text={tooltip} />}</div>
       </td>
       <td className="py-2.5 pr-3 font-medium text-xs">{fmt(value)}</td>
       <td className="py-2.5 pr-3 text-xs text-muted-foreground">{fmt(peerMedian)}</td>
@@ -287,649 +229,886 @@ function ValMetricRow({
   );
 }
 
-// ── Dimension score card ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Coverage gate helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
-function DimScoreCard({
-  label,
-  score,
-  labelText,
-  keyDrivers,
-}: {
-  label: string;
-  score: number;
-  labelText: string;
-  keyDrivers: string[];
+function coverageTier(pct: number): 'full' | 'partial' | 'limited' | 'insufficient' {
+  if (pct >= 80) return 'full';
+  if (pct >= 60) return 'partial';
+  if (pct >= 40) return 'limited';
+  return 'insufficient';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Card 1 — Valuation expansion / contraction
+// ─────────────────────────────────────────────────────────────────────────────
+
+function classifyPeVsHistory(vsHistory3y: number | null | undefined, language: string): {
+  label: string; color: string;
+} {
+  if (vsHistory3y == null) return { label: '—', color: 'text-muted-foreground' };
+  if (vsHistory3y <= -20) return {
+    label: language === 'it' ? 'Molto più economica della storia' : 'Much cheaper than own history',
+    color: 'text-blue-600 dark:text-blue-400',
+  };
+  if (vsHistory3y <= -5) return {
+    label: language === 'it' ? 'Più economica della storia' : 'Cheaper than own history',
+    color: 'text-blue-500 dark:text-blue-400',
+  };
+  if (vsHistory3y >= 20) return {
+    label: language === 'it' ? 'Valutazione molto più cara della storia' : 'Much more expensive than history',
+    color: 'text-orange-600 dark:text-orange-400',
+  };
+  if (vsHistory3y >= 5) return {
+    label: language === 'it' ? 'Valutazione leggermente superiore alla storia' : 'Slightly above historical valuation',
+    color: 'text-orange-500 dark:text-orange-400',
+  };
+  return {
+    label: language === 'it' ? 'In linea con la valutazione storica' : 'In line with historical valuation',
+    color: 'text-muted-foreground',
+  };
+}
+
+function classifyEpsGrowthMomentum(epsYoy: number | null, rev3yCagr: number | null, language: string): {
+  label: string; badge: string;
+} {
+  const it = language === 'it';
+  if (epsYoy == null || rev3yCagr == null) return {
+    label: '—', badge: 'text-muted-foreground bg-muted',
+  };
+  if (epsYoy > rev3yCagr + 5) return {
+    label: it ? 'Accelerazione' : 'Accelerating',
+    badge: 'text-emerald-700 bg-emerald-500/10 border-emerald-500/25',
+  };
+  if (epsYoy > 0 && rev3yCagr > 0) return {
+    label: it ? 'Crescita stabile' : 'Stable growth',
+    badge: 'text-blue-700 bg-blue-500/10 border-blue-500/25',
+  };
+  if (epsYoy < rev3yCagr - 5) return {
+    label: it ? 'Rallentamento' : 'Slowing',
+    badge: 'text-yellow-700 bg-yellow-500/10 border-yellow-500/25',
+  };
+  if (epsYoy < 0) return {
+    label: it ? 'Contrazione' : 'Contracting',
+    badge: 'text-red-700 bg-red-500/10 border-red-500/25',
+  };
+  return {
+    label: it ? 'Crescita stabile' : 'Stable growth',
+    badge: 'text-blue-700 bg-blue-500/10 border-blue-500/25',
+  };
+}
+
+function classifyBusinessQuality(
+  opMargin: number | null, fcfMargin: number | null, roic: number | null, language: string,
+): { label: string; color: string } {
+  const it = language === 'it';
+  const score = [
+    opMargin != null ? (opMargin > 20 ? 2 : opMargin > 10 ? 1 : 0) : 0,
+    fcfMargin != null ? (fcfMargin > 15 ? 2 : fcfMargin > 5 ? 1 : 0) : 0,
+    roic != null ? (roic > 15 ? 2 : roic > 8 ? 1 : 0) : 0,
+  ].reduce((a, b) => a + b, 0);
+  if (score >= 5) return { label: it ? 'Molto forte' : 'Very strong', color: 'text-emerald-600' };
+  if (score >= 3) return { label: it ? 'Forte' : 'Strong', color: 'text-emerald-500' };
+  if (score >= 2) return { label: it ? 'Neutrale' : 'Neutral', color: 'text-muted-foreground' };
+  if (score >= 1) return { label: it ? 'Debole' : 'Weak', color: 'text-orange-500' };
+  return { label: it ? 'Molto debole' : 'Very weak', color: 'text-red-500' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KEY SIGNAL CARDS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SignalCard({ title, children, subtitle }: {
+  title: string; subtitle?: string; children: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-lg border p-3 ${scoreBg(score)}`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-foreground/80">{label}</span>
-        <span className={`text-sm font-bold ${scoreColor(score)}`}>{score}</span>
+    <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3 min-h-[180px]">
+      <div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</div>
+        {subtitle && <div className="text-[10px] text-muted-foreground/60 mt-0.5">{subtitle}</div>}
       </div>
-      <div className="w-full bg-background/60 rounded-full h-1.5 mb-2">
-        <div
-          className={`h-1.5 rounded-full ${scoreBar(score)}`}
-          style={{ width: `${score}%` }}
+      {children}
+    </div>
+  );
+}
+
+function SignalRow({ label, value, valueClass }: {
+  label: string; value: string; valueClass?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground truncate">{label}</span>
+      <span className={`font-semibold tabular-nums ml-2 shrink-0 ${valueClass ?? ''}`}>{value}</span>
+    </div>
+  );
+}
+
+function KeySignalCards({ analysis, t, language }: {
+  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+}) {
+  const { growth, profitability, cashFlow, financialStrength, valuation } = analysis;
+
+  // ── Card 1: Valuation expansion/contraction ───────────────────────────────
+  const primaryMultiple =
+    valuation.pe.value != null && valuation.pe.value > 0 && valuation.pe.value < 200
+      ? { label: 'P/E', m: valuation.pe }
+      : valuation.evEbitda.value != null && valuation.evEbitda.value > 0
+        ? { label: 'EV/EBITDA', m: valuation.evEbitda }
+        : valuation.pFcf.value != null && valuation.pFcf.value > 0
+          ? { label: 'P/FCF', m: valuation.pFcf }
+          : null;
+
+  const vsHistClass = classifyPeVsHistory(primaryMultiple?.m.vsHistory3y, language);
+
+  // ── Card 2: Valuation multiples ───────────────────────────────────────────
+  // ── Card 3: Growth momentum ───────────────────────────────────────────────
+  const momentum = classifyEpsGrowthMomentum(
+    growth.epsYoy.isNm ? null : (growth.epsYoy.value ?? null),
+    growth.revenue3yCagr.isNm ? null : (growth.revenue3yCagr.value ?? null),
+    language,
+  );
+
+  // ── Card 4: Business quality ──────────────────────────────────────────────
+  const quality = classifyBusinessQuality(
+    profitability.operatingMarginTtm ?? null,
+    profitability.fcfMarginTtm ?? null,
+    profitability.roic ?? null,
+    language,
+  );
+
+  // ── Card 5: Financial strength ────────────────────────────────────────────
+  const dilution = valuation.dilution3y;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* Card 1 — Prezzo vs Utili / Valuation change */}
+      <SignalCard
+        title={t('fa.card.valChange')}
+        subtitle={primaryMultiple ? `${primaryMultiple.label}: ${fmtX(primaryMultiple.m.value)}` : undefined}
+      >
+        {primaryMultiple ? (
+          <>
+            <SignalRow
+              label={t('fa.card.current')}
+              value={fmtX(primaryMultiple.m.value)}
+            />
+            <SignalRow
+              label={t('fa.card.hist5y')}
+              value={fmtX(primaryMultiple.m.historicalMedian5y)}
+            />
+            <SignalRow
+              label={t('fa.card.peerMedian')}
+              value={fmtX(primaryMultiple.m.peerMedian)}
+            />
+            <div className="mt-auto pt-2 border-t border-border/40">
+              <span className={`text-[11px] font-semibold ${vsHistClass.color}`}>
+                {vsHistClass.label}
+              </span>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">{t('fa.nm')}</p>
+        )}
+      </SignalCard>
+
+      {/* Card 2 — Valuation multiples vs peers */}
+      <SignalCard title={t('fa.card.valuation')}>
+        <SignalRow label="P/E" value={fmtX(valuation.pe.value)} />
+        <SignalRow label="EV/EBITDA" value={fmtX(valuation.evEbitda.value)} />
+        <SignalRow label="P/FCF" value={fmtX(valuation.pFcf.value)} />
+        <SignalRow label="EV/Sales" value={fmtX(valuation.evRevenue.value)} />
+        {primaryMultiple?.m.vsPeers != null && (
+          <div className="mt-auto pt-2 border-t border-border/40">
+            <span className={`text-[11px] font-semibold ${pctColor(primaryMultiple.m.vsPeers, false)}`}>
+              {primaryMultiple.m.vsPeers > 0
+                ? `+${primaryMultiple.m.vsPeers.toFixed(0)}% ${t('fa.card.vsPeers')}`
+                : `${primaryMultiple.m.vsPeers.toFixed(0)}% ${t('fa.card.vsPeers')}`}
+            </span>
+          </div>
+        )}
+      </SignalCard>
+
+      {/* Card 3 — Growth */}
+      <SignalCard title={t('fa.card.growth')}>
+        <SignalRow
+          label={t('fa.metric.revenueYoy')}
+          value={growth.revenueYoy.isNm ? 'N/M' : fmtPct(growth.revenueYoy.value)}
+          valueClass={growth.revenueYoy.isNm ? 'text-muted-foreground' : pctColor(growth.revenueYoy.value)}
         />
-      </div>
-      <div className={`text-[10px] font-semibold ${scoreColor(score)}`}>{labelText}</div>
-      {keyDrivers.length > 0 && (
-        <div className="mt-1.5 space-y-0.5">
-          {keyDrivers.map((d, i) => (
-            <div key={i} className="text-[10px] text-muted-foreground">· {d}</div>
-          ))}
+        <SignalRow
+          label={t('fa.metric.revenue3yCagr')}
+          value={growth.revenue3yCagr.isNm ? 'N/M' : fmtPct(growth.revenue3yCagr.value)}
+          valueClass={growth.revenue3yCagr.isNm ? 'text-muted-foreground' : pctColor(growth.revenue3yCagr.value)}
+        />
+        <SignalRow
+          label={t('fa.metric.epsYoy')}
+          value={growth.epsYoy.isNm ? 'N/M' : fmtPct(growth.epsYoy.value)}
+          valueClass={growth.epsYoy.isNm ? 'text-muted-foreground' : pctColor(growth.epsYoy.value)}
+        />
+        <SignalRow
+          label={t('fa.metric.fcfYoy')}
+          value={growth.fcfYoy.isNm ? 'N/M' : fmtPct(growth.fcfYoy.value)}
+          valueClass={growth.fcfYoy.isNm ? 'text-muted-foreground' : pctColor(growth.fcfYoy.value)}
+        />
+        <div className="mt-auto pt-2 border-t border-border/40">
+          <span className={`text-[11px] font-semibold border rounded-full px-2 py-0.5 ${momentum.badge}`}>
+            {momentum.label}
+          </span>
         </div>
-      )}
+      </SignalCard>
+
+      {/* Card 4 — Business Quality */}
+      <SignalCard title={t('fa.card.quality')}>
+        <SignalRow
+          label={t('fa.metric.opMargin')}
+          value={fmtPctRaw(profitability.operatingMarginTtm)}
+          valueClass={pctColor(profitability.operatingMarginTtm)}
+        />
+        <SignalRow
+          label={t('fa.metric.fcfMargin')}
+          value={fmtPctRaw(profitability.fcfMarginTtm)}
+          valueClass={pctColor(profitability.fcfMarginTtm)}
+        />
+        <SignalRow
+          label={t('fa.metric.roic')}
+          value={fmtPctRaw(profitability.roic)}
+          valueClass={pctColor(profitability.roic)}
+        />
+        <SignalRow
+          label={`${language === 'it' ? 'Trend 3A' : '3Y trend'}`}
+          value={profitability.operatingMarginTrend === 'improving'
+            ? (language === 'it' ? '↑ Espansione' : '↑ Expanding')
+            : profitability.operatingMarginTrend === 'declining'
+              ? (language === 'it' ? '↓ Contrazione' : '↓ Contracting')
+              : (language === 'it' ? '→ Stabile' : '→ Stable')}
+          valueClass={profitability.operatingMarginTrend === 'improving'
+            ? 'text-emerald-600'
+            : profitability.operatingMarginTrend === 'declining'
+              ? 'text-red-500'
+              : 'text-muted-foreground'}
+        />
+        <div className="mt-auto pt-2 border-t border-border/40">
+          <span className={`text-[11px] font-semibold ${quality.color}`}>{quality.label}</span>
+        </div>
+      </SignalCard>
+
+      {/* Card 5 — Financial Strength */}
+      <SignalCard title={t('fa.card.strength')}>
+        <SignalRow
+          label={t('fa.metric.netDebt')}
+          value={financialStrength.isNetCash ? t('fa.netCash') : fmtMoney(financialStrength.netDebt)}
+          valueClass={financialStrength.isNetCash ? 'text-emerald-600' : ''}
+        />
+        <SignalRow
+          label={t('fa.metric.ndEbitda')}
+          value={financialStrength.netDebtToEbitdaIsNm ? 'N/M' : fmtN(financialStrength.netDebtToEbitda, 1)}
+          valueClass={financialStrength.netDebtToEbitda != null && !financialStrength.netDebtToEbitdaIsNm && financialStrength.netDebtToEbitda > 4
+            ? 'text-orange-500' : ''}
+        />
+        <SignalRow
+          label={t('fa.metric.intCoverage')}
+          value={fmtX(financialStrength.interestCoverage)}
+          valueClass={financialStrength.interestCoverage != null && financialStrength.interestCoverage < 2
+            ? 'text-red-500' : ''}
+        />
+        <SignalRow
+          label={language === 'it' ? 'Diluzione 3A CAGR' : '3Y dilution CAGR'}
+          value={valuation.dilution3y != null ? fmtPct(valuation.dilution3y) : '—'}
+          valueClass={dilution != null && dilution > 3 ? 'text-orange-500' : ''}
+        />
+        <SignalRow
+          label={t('fa.metric.fcfPerShare')}
+          value={fmtN(cashFlow.fcfPerShareTtm, 2)}
+        />
+      </SignalCard>
     </div>
   );
 }
 
-// ── Mini history chart ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// INDEXED BUSINESS PERFORMANCE CHART
+// "Has the price followed the business?"
+// ─────────────────────────────────────────────────────────────────────────────
 
-function HistoryBarChart({
-  data,
-  label,
-  isMoney = true,
-  isPct = false,
-  height = 160,
-}: {
-  data: HistoricalDataPoint[];
-  label: string;
-  isMoney?: boolean;
-  isPct?: boolean;
-  height?: number;
-}) {
-  if (!data.length) return null;
-  const chartData = data.map((d) => ({ year: d.year, value: d.value }));
-  const fmt = (v: number) =>
-    isPct ? `${v.toFixed(1)}%` : isMoney ? fmtMoney(v) : v.toFixed(2);
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground font-medium mb-1.5">{label}</div>
-      <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-          <XAxis dataKey="year" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
-          <YAxis hide />
-          <RechartsTooltip
-            formatter={(v: number) => [fmt(v), label]}
-            contentStyle={{ fontSize: 11 }}
-          />
-          <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1} />
-          <Bar dataKey="value" radius={[2, 2, 0, 0]}>
-            {chartData.map((d, i) => (
-              <Cell
-                key={i}
-                fill={d.value == null ? '#e5e7eb' : d.value >= 0 ? '#22c55e' : '#ef4444'}
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
+type ChartSeries = 'eps' | 'revenue' | 'fcf' | 'netIncome';
+type ChartPeriod = '3Y' | '5Y' | '10Y' | 'Max';
+
+const SERIES_COLORS: Record<ChartSeries, string> = {
+  eps: '#3b82f6',
+  revenue: '#8b5cf6',
+  fcf: '#10b981',
+  netIncome: '#f59e0b',
+};
+
+function indexToHundred(points: HistoricalDataPoint[], periodYears: number | null): {
+  data: { year: string; value: number | null }[];
+  startValue: number | null;
+  endValue: number | null;
+  changePct: number | null;
+} {
+  if (!points.length) return { data: [], startValue: null, endValue: null, changePct: null };
+  const filtered = periodYears != null
+    ? points.slice(-Math.min(periodYears + 1, points.length))
+    : points;
+  if (!filtered.length) return { data: [], startValue: null, endValue: null, changePct: null };
+  const base = filtered[0].value;
+  if (base == null || base === 0) return { data: [], startValue: null, endValue: null, changePct: null };
+  const indexed = filtered.map(p => ({
+    year: p.year,
+    value: p.value != null ? Math.round((p.value / base) * 100 * 10) / 10 : null,
+  }));
+  const end = indexed[indexed.length - 1]?.value;
+  return {
+    data: indexed,
+    startValue: filtered[0].value ?? null,
+    endValue: filtered[filtered.length - 1]?.value ?? null,
+    changePct: end != null ? end - 100 : null,
+  };
 }
 
-function HistoryLineChart({
-  series,
-  height = 160,
-  colors,
-}: {
-  series: { data: HistoricalDataPoint[]; label: string }[];
-  height?: number;
-  colors?: string[];
+function BusinessPerformanceChart({ analysis, t, language }: {
+  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
 }) {
-  if (!series.length || !series[0].data.length) return null;
-  const years = series[0].data.map((d) => d.year);
-  const chartData = years.map((y) => {
-    const row: Record<string, string | number | null> = { year: y };
-    series.forEach((s) => {
-      const point = s.data.find((d) => d.year === y);
-      row[s.label] = point?.value ?? null;
+  const [period, setPeriod] = useState<ChartPeriod>('5Y');
+  const [activeSeries, setActiveSeries] = useState<Set<ChartSeries>>(new Set(['eps', 'revenue']));
+
+  const periods: ChartPeriod[] = ['3Y', '5Y', '10Y', 'Max'];
+  const periodYears: Record<ChartPeriod, number | null> = { '3Y': 3, '5Y': 5, '10Y': 10, 'Max': null };
+
+  const seriesMap: Record<ChartSeries, HistoricalDataPoint[]> = {
+    eps: analysis.historical.eps,
+    revenue: analysis.historical.revenue,
+    fcf: analysis.historical.fcf,
+    netIncome: analysis.historical.netIncome,
+  };
+  const seriesLabels: Record<ChartSeries, string> = {
+    eps: t('fa.hist.eps'),
+    revenue: t('fa.hist.revenue'),
+    fcf: t('fa.hist.fcf'),
+    netIncome: t('fa.hist.netIncome'),
+  };
+
+  const yrs = periodYears[period];
+
+  const indexed = useMemo(() => {
+    const result: Record<ChartSeries, ReturnType<typeof indexToHundred>> = {} as never;
+    (Object.keys(seriesMap) as ChartSeries[]).forEach(k => {
+      result[k] = indexToHundred(seriesMap[k], yrs);
     });
-    return row;
-  });
-  const palette = colors ?? ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899'];
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-        <XAxis dataKey="year" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
-        <YAxis hide />
-        <RechartsTooltip contentStyle={{ fontSize: 11 }} />
-        <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1} />
-        {series.map((s, i) => (
-          <Line
-            key={s.label}
-            type="monotone"
-            dataKey={s.label}
-            stroke={palette[i % palette.length]}
-            dot={false}
-            strokeWidth={2}
-          />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, analysis]);
 
-// ── Explanation panel ─────────────────────────────────────────────────────────
+  // Merge all series into a single chart data array
+  const chartData = useMemo(() => {
+    const allYears = new Set<string>();
+    (Object.keys(seriesMap) as ChartSeries[]).forEach(k => {
+      indexed[k].data.forEach(d => allYears.add(d.year));
+    });
+    return Array.from(allYears).sort().map(year => {
+      const row: Record<string, string | number | null> = { year };
+      (Object.keys(seriesMap) as ChartSeries[]).forEach(k => {
+        const pt = indexed[k].data.find(d => d.year === year);
+        row[k] = pt?.value ?? null;
+      });
+      return row;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indexed]);
 
-function ExplanationPanel({
-  explanation,
-  t,
-}: {
-  explanation: FundamentalAnalysis['explanation'];
-  t: (k: string) => string;
-}) {
-  type ExpKey =
-    | 'summary'
-    | 'growthAnalysis'
-    | 'profitabilityAnalysis'
-    | 'cashFlowAnalysis'
-    | 'balanceSheetAnalysis'
-    | 'valuationAnalysis'
-    | 'peerAnalysis';
-
-  const sections: { key: ExpKey; label: string }[] = [
-    { key: 'summary', label: t('fa.explain.summary') },
-    { key: 'growthAnalysis', label: t('fa.explain.growth') },
-    { key: 'profitabilityAnalysis', label: t('fa.explain.profitability') },
-    { key: 'cashFlowAnalysis', label: t('fa.explain.cashflow') },
-    { key: 'balanceSheetAnalysis', label: t('fa.explain.balance') },
-    { key: 'valuationAnalysis', label: t('fa.explain.valuation') },
-    { key: 'peerAnalysis', label: t('fa.explain.peers') },
-  ];
-
-  const [open, setOpen] = useState<Set<string>>(new Set(['summary']));
-  const toggle = (key: string) => {
-    setOpen((prev) => {
+  const toggleSeries = (s: ChartSeries) => {
+    setActiveSeries(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(s) && next.size === 1) return prev; // keep at least one
+      next.has(s) ? next.delete(s) : next.add(s);
       return next;
     });
   };
 
+  const title = language === 'it' ? 'Il prezzo ha seguito il business?' : 'Has the price followed the business?';
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-        {sections.map(({ key, label }) => (
-          <div key={key} className="border border-border/60 rounded-lg overflow-hidden">
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-3.5 border-b border-border/60 bg-muted/20 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-sm text-foreground">{title}</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {language === 'it'
+              ? 'Dati indicizzati a 100 all\'inizio del periodo · Fondamentali annuali'
+              : 'Annual fundamentals indexed to 100 at start of period'}
+          </p>
+        </div>
+        {/* Period selector */}
+        <div className="flex items-center gap-1">
+          {periods.map(p => (
             <button
-              onClick={() => toggle(key)}
-              className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted/30 transition-colors text-left"
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
+                period === p
+                  ? 'bg-primary text-primary-foreground font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
             >
-              <span>{label}</span>
-              {open.has(key) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {p}
             </button>
-            {open.has(key) && (
-              <div className="px-3 pb-3 text-xs text-foreground/90 leading-relaxed border-t border-border/40 pt-2.5">
-                {explanation[key]}
-              </div>
-            )}
-          </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Series toggles */}
+      <div className="px-5 pt-3 flex flex-wrap gap-2">
+        {(Object.keys(seriesMap) as ChartSeries[]).map(s => (
+          <button
+            key={s}
+            onClick={() => toggleSeries(s)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border transition-all ${
+              activeSeries.has(s)
+                ? 'border-transparent font-medium'
+                : 'border-border text-muted-foreground'
+            }`}
+            style={activeSeries.has(s) ? {
+              backgroundColor: SERIES_COLORS[s] + '18',
+              color: SERIES_COLORS[s],
+              borderColor: SERIES_COLORS[s] + '40',
+            } : undefined}
+          >
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: activeSeries.has(s) ? SERIES_COLORS[s] : '#d1d5db' }}
+            />
+            {seriesLabels[s]}
+          </button>
         ))}
-
-        {/* Strengths */}
-        <div className="border border-border/60 rounded-lg overflow-hidden">
-          <button
-            onClick={() => toggle('strengths')}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted/30 transition-colors text-left"
-          >
-            <span>{t('fa.explain.strengths')}</span>
-            {open.has('strengths') ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          {open.has('strengths') && (
-            <div className="px-3 pb-3 border-t border-border/40 pt-2">
-              <ul className="space-y-1">
-                {explanation.strengths.map((s, i) => (
-                  <li key={i} className="text-xs text-green-700 dark:text-green-400 flex gap-1.5">
-                    <CheckCircle2 size={12} className="shrink-0 mt-0.5" />
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Risks */}
-        <div className="border border-border/60 rounded-lg overflow-hidden">
-          <button
-            onClick={() => toggle('risks')}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted/30 transition-colors text-left"
-          >
-            <span>{t('fa.explain.risks')}</span>
-            {open.has('risks') ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          {open.has('risks') && (
-            <div className="px-3 pb-3 border-t border-border/40 pt-2">
-              <ul className="space-y-1">
-                {explanation.risks.map((r, i) => (
-                  <li key={i} className="text-xs text-red-700 dark:text-red-400 flex gap-1.5">
-                    <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Conclusion */}
-        <div className="border border-border/60 rounded-lg overflow-hidden">
-          <button
-            onClick={() => toggle('conclusion')}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted/30 transition-colors text-left"
-          >
-            <span>{t('fa.explain.conclusion')}</span>
-            {open.has('conclusion') ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          {open.has('conclusion') && (
-            <div className="px-3 pb-3 text-xs text-foreground/90 leading-relaxed border-t border-border/40 pt-2.5">
-              {explanation.conclusion}
-            </div>
-          )}
-        </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-border/40 text-[10px] text-muted-foreground leading-relaxed">
-        {explanation.disclaimer}
-      </div>
-    </div>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-
-export default function FundamentalAnalysisPage() {
-  const { t, language } = useTranslation();
-
-  const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery] = useDebounce(searchQuery, 300);
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-
-  const { data: searchResults, isLoading: isSearching } = useSearchTickers(
-    { query: debouncedQuery },
-    {
-      query: {
-        enabled: debouncedQuery.length > 0,
-        queryKey: getSearchTickersQueryKey({ query: debouncedQuery }),
-      },
-    },
-  );
-
-  const {
-    data: analysis,
-    isLoading: isAnalyzing,
-    isError,
-  } = useGetFundamentalAnalysis(
-    { symbol: selectedSymbol ?? '', language },
-    {
-      query: {
-        enabled: !!selectedSymbol,
-        queryKey: getGetFundamentalAnalysisQueryKey({
-          symbol: selectedSymbol ?? '',
-          language,
-        }),
-      },
-    },
-  );
-
-  const selectSymbol = (s: string) => {
-    // Remove any cached error/data for this symbol so a fresh request is always made
-    queryClient.removeQueries({
-      queryKey: getGetFundamentalAnalysisQueryKey({ symbol: s, language }),
-    });
-    setSelectedSymbol(s);
-    setSearchQuery('');
-  };
-
-  return (
-    <Layout>
-      <div className="py-6 flex flex-col gap-6 max-h-[calc(100vh-64px)]">
-
-        {/* ── Top bar ──────────────────────────────────────────────────────── */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card p-4 rounded-xl border border-border shadow-sm">
-          <div className="relative w-full md:max-w-md z-20">
-            <div className="relative flex items-center">
-              <Search className="absolute left-3 text-muted-foreground w-5 h-5" />
-              <input
-                type="text"
-                placeholder={t('fa.search.placeholder')}
-                className="w-full h-12 pl-10 pr-4 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground font-medium"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+      {/* Chart */}
+      <div className="px-4 pt-2 pb-4">
+        {chartData.length < 2 ? (
+          <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+            <BarChart2 size={20} className="mr-2 opacity-40" />
+            {language === 'it' ? 'Dati storici insufficienti' : 'Insufficient historical data'}
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" strokeOpacity={0.5} />
+              <XAxis dataKey="year" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}`} />
+              <ReferenceLine y={100} stroke="#9ca3af" strokeDasharray="4 2" strokeWidth={1} />
+              <RechartsTooltip
+                contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                formatter={(v: number, name: string) => {
+                  const s = name as ChartSeries;
+                  const series = seriesLabels[s] || name;
+                  return [`${v != null ? v.toFixed(1) : '—'} (base 100)`, series];
+                }}
               />
-            </div>
-            {debouncedQuery.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border rounded-lg shadow-xl overflow-hidden max-h-64 overflow-y-auto">
-                {isSearching ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">{t('fa.search.loading')}</div>
-                ) : searchResults && searchResults.length > 0 ? (
-                  searchResults.map((r) => (
-                    <button
-                      key={r.symbol}
-                      className="w-full text-left px-4 py-3 hover:bg-accent flex items-center justify-between border-b border-border/50 last:border-0"
-                      onClick={() => selectSymbol(r.symbol)}
-                    >
-                      <div>
-                        <span className="font-bold text-foreground">{r.symbol}</span>
-                        <span className="ml-2 text-sm text-muted-foreground line-clamp-1">{r.name}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-sm">{r.exchange}</span>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-sm text-muted-foreground">{t('fa.search.empty')}</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {selectedSymbol && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-mono font-bold text-foreground">{selectedSymbol}</span>
-              {analysis && (
-                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                  {analysis.sector ?? analysis.exchange}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Empty state ──────────────────────────────────────────────────── */}
-        {!selectedSymbol && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-sm">
-              <div className="w-16 h-16 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
-                <Search size={28} className="text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground">{t('fa.noSymbol')}</p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Loading ──────────────────────────────────────────────────────── */}
-        {selectedSymbol && isAnalyzing && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-md bg-card border border-border rounded-2xl p-8 shadow-sm">
-              <div className="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-5" />
-              <p className="font-semibold text-foreground mb-2">
-                {language === 'it' ? 'Analisi di' : 'Analysing'} <span className="text-primary font-mono">{selectedSymbol}</span>
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-5">{t('fa.loading')}</p>
-              <div className="space-y-2">
-                {[
-                  language === 'it' ? '📊 Download bilanci FMP…' : '📊 Fetching financial statements…',
-                  language === 'it' ? '🔢 Calcolo indicatori e score…' : '🔢 Computing metrics & scores…',
-                  language === 'it' ? '🤖 Generazione spiegazione AI…' : '🤖 Generating AI explanation…',
-                ].map((step) => (
-                  <div key={step} className="text-xs text-muted-foreground/70 flex items-center gap-2">
-                    <span>{step}</span>
-                  </div>
+              {(Object.keys(seriesMap) as ChartSeries[])
+                .filter(s => activeSeries.has(s))
+                .map(s => (
+                  <Line
+                    key={s}
+                    type="monotone"
+                    dataKey={s}
+                    stroke={SERIES_COLORS[s]}
+                    dot={{ r: 3, strokeWidth: 0, fill: SERIES_COLORS[s] }}
+                    activeDot={{ r: 5 }}
+                    strokeWidth={2}
+                    connectNulls={false}
+                  />
                 ))}
-              </div>
-              <p className="text-xs text-muted-foreground/50 mt-4">
-                {language === 'it' ? 'Circa 30–60 secondi' : 'Takes about 30–60 seconds'}
-              </p>
-            </div>
-          </div>
+            </LineChart>
+          </ResponsiveContainer>
         )}
+      </div>
 
-        {/* ── Error ────────────────────────────────────────────────────────── */}
-        {selectedSymbol && isError && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-sm bg-destructive/5 border border-destructive/20 rounded-xl p-6">
-              <AlertTriangle size={28} className="text-destructive mx-auto mb-3" />
-              <p className="text-sm text-foreground font-medium mb-1">{t('fa.error')}</p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Main content ─────────────────────────────────────────────────── */}
-        {analysis && !isAnalyzing && (
-          <div className="flex-1 overflow-hidden flex flex-col gap-4 min-h-0">
-
-            {/* Stock header */}
-            <StockHeader analysis={analysis} t={t} language={language} />
-
-            {/* Main two-column layout */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
-
-              {/* Sections (left, scrollable) */}
-              <div className="lg:col-span-2 flex flex-col gap-4 overflow-y-auto pr-1">
-                <ScoresSection analysis={analysis} t={t} />
-                <GrowthSection_ analysis={analysis} t={t} />
-                <ProfitabilitySection_ analysis={analysis} t={t} />
-                <CashFlowSection_ analysis={analysis} t={t} language={language} />
-                <FinancialStrengthSection_ analysis={analysis} t={t} />
-                <CapitalEfficiencySection_ analysis={analysis} t={t} />
-                <ValuationSection_ analysis={analysis} t={t} language={language} />
-                <PeerSection analysis={analysis} t={t} />
-                <HistoricalSection_ analysis={analysis} t={t} />
-                <FlagsAndStrengths analysis={analysis} t={t} language={language} />
-              </div>
-
-              {/* AI Explanation panel (right, sticky) */}
-              <div className="lg:col-span-1 flex flex-col min-h-0">
-                <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full max-h-[calc(100vh-200px)]">
-                  <div className="px-4 py-3 border-b border-border/60 bg-muted/30 shrink-0">
-                    <h3 className="font-semibold text-sm">{t('fa.section.explanation')}</h3>
-                    <ConfidenceBadge
-                      level={analysis.dataCoverage.confidenceLevel}
-                      pct={analysis.dataCoverage.coveragePct}
-                      t={t}
-                    />
+      {/* Summary row */}
+      {chartData.length >= 2 && (
+        <div className="px-5 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/40 pt-3">
+          {(Object.keys(seriesMap) as ChartSeries[])
+            .filter(s => activeSeries.has(s))
+            .map(s => {
+              const { changePct } = indexed[s];
+              return (
+                <div key={s} className="text-xs">
+                  <div className="text-muted-foreground mb-0.5" style={{ color: SERIES_COLORS[s] + 'cc' }}>
+                    {seriesLabels[s]}
                   </div>
-                  <div className="flex-1 overflow-hidden p-3">
-                    <ExplanationPanel explanation={analysis.explanation} t={t} />
+                  <div className={`font-semibold text-sm ${pctColor(changePct)}`}>
+                    {changePct != null ? fmtPct(changePct) : '—'}
                   </div>
                 </div>
+              );
+            })}
+        </div>
+      )}
+
+      {/* Data note */}
+      <div className="px-5 pb-3 text-[10px] text-muted-foreground/60 border-t border-border/30 pt-2">
+        {language === 'it'
+          ? 'I dati di prezzo storico non sono inclusi nell\'analisi fondamentale. Il grafico mostra la performance dei fondamentali (dati annuali).'
+          : 'Historical price data is not included in the fundamental dataset. This chart shows annual fundamental performance only.'}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALUATION SNAPSHOT CHART
+// "How expensive vs history?"
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ValuationMetric = 'pe' | 'evEbitda' | 'pFcf' | 'evRevenue';
+
+function ValuationSnapshotChart({ analysis, t, language }: {
+  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+}) {
+  const [metric, setMetric] = useState<ValuationMetric>('pe');
+  const { valuation } = analysis;
+
+  const metrics: { key: ValuationMetric; label: string; m: ValuationMultiple }[] = [
+    { key: 'pe', label: 'P/E', m: valuation.pe },
+    { key: 'evEbitda', label: 'EV/EBITDA', m: valuation.evEbitda },
+    { key: 'pFcf', label: 'P/FCF', m: valuation.pFcf },
+    { key: 'evRevenue', label: 'EV/Sales', m: valuation.evRevenue },
+  ];
+
+  const current = metrics.find(m => m.key === metric)!;
+  const m = current.m;
+
+  const chartData = [
+    { label: language === 'it' ? 'Attuale' : 'Current', value: m.value, fill: '#3b82f6' },
+    { label: language === 'it' ? 'Mediana 5A' : '5Y median', value: m.historicalMedian5y, fill: '#9ca3af' },
+    { label: language === 'it' ? 'Mediana peer' : 'Peer median', value: m.peerMedian, fill: '#e5e7eb' },
+  ].filter(d => d.value != null && d.value > 0 && d.value < 500);
+
+  const percentile = m.peerPercentile;
+  const vsH = m.vsHistory3y;
+  const vsP = m.vsPeers;
+
+  const title = language === 'it' ? 'Quanto è cara oggi rispetto al passato?' : 'How expensive is it versus history?';
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-border/60 bg-muted/20 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-sm text-foreground">{title}</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {language === 'it' ? 'Confronto con storia e peer' : 'Current vs history and peer group'}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          {metrics.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setMetric(key)}
+              className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
+                metric === key
+                  ? 'bg-primary text-primary-foreground font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {/* Bar chart */}
+        <div>
+          {chartData.length >= 1 ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} layout="horizontal">
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}x`} />
+                <RechartsTooltip
+                  formatter={(v: number) => [`${v.toFixed(1)}x`, current.label]}
+                  contentStyle={{ fontSize: 11 }}
+                />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-sm text-muted-foreground">
+              {language === 'it' ? 'Dati insufficienti' : 'Insufficient data'}
+            </div>
+          )}
+        </div>
+
+        {/* Metrics summary */}
+        <div className="flex flex-col gap-3 justify-center">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                {current.label} {language === 'it' ? 'attuale' : 'current'}
+              </div>
+              <div className="text-xl font-bold">{fmtX(m.value)}</div>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                {language === 'it' ? 'Mediana 5 anni' : '5Y median'}
+              </div>
+              <div className="text-xl font-bold">{fmtX(m.historicalMedian5y)}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                {language === 'it' ? 'Mediana peer' : 'Peer median'}
+              </div>
+              <div className="text-xl font-bold">{fmtX(m.peerMedian)}</div>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                {language === 'it' ? 'Percentile' : 'Peer percentile'}
+              </div>
+              <div className="text-xl font-bold">{percentile != null ? `${percentile}°` : '—'}</div>
+            </div>
+          </div>
+          <div className="flex gap-3 text-xs">
+            {vsH != null && (
+              <div>
+                <span className="text-muted-foreground">vs {language === 'it' ? 'storia' : 'history'}: </span>
+                <span className={`font-semibold ${pctColor(vsH, false)}`}>
+                  {vsH > 0 ? '+' : ''}{vsH.toFixed(0)}%
+                </span>
+              </div>
+            )}
+            {vsP != null && (
+              <div>
+                <span className="text-muted-foreground">vs {language === 'it' ? 'peer' : 'peers'}: </span>
+                <span className={`font-semibold ${pctColor(vsP, false)}`}>
+                  {vsP > 0 ? '+' : ''}{vsP.toFixed(0)}%
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPACT AI PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CompactAIPanel({ analysis, t, language }: {
+  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const exp = analysis.explanation;
+  const coverage = analysis.dataCoverage;
+  const tier = coverageTier(coverage.coveragePct);
+  const lowData = tier === 'insufficient' || tier === 'limited';
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-border/60 bg-muted/20 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h3 className="font-semibold text-sm">{t('fa.section.explanation')}</h3>
+          <CoverageBadge tier={tier} pct={coverage.coveragePct} t={t} language={language} />
+        </div>
+        {!lowData && (
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          >
+            {expanded
+              ? (language === 'it' ? 'Riduci' : 'Collapse')
+              : (language === 'it' ? 'Approfondisci l\'analisi' : 'Expand analysis')}
+            {expanded ? <ChevronUp size={13} /> : <ChevronRight size={13} />}
+          </button>
+        )}
+      </div>
+
+      <div className="p-4">
+        {lowData ? (
+          <div className="flex gap-2 text-sm">
+            <AlertTriangle size={16} className="text-orange-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-foreground mb-1">
+                {language === 'it'
+                  ? `Dati insufficienti per un'analisi fondamentale affidabile.`
+                  : `Insufficient data for a reliable fundamental analysis.`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {language === 'it'
+                  ? `Disponibili ${coverage.coveragePct.toFixed(0)}% delle metriche necessarie. I dati mancanti non vengono trattati come zero.`
+                  : `${coverage.coveragePct.toFixed(0)}% of required metrics available. Missing data is not treated as zero.`}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Headline + summary */}
+            <p className="text-sm text-foreground/90 leading-relaxed mb-4">{exp.summary}</p>
+
+            {/* Strengths & Risks side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-2">
+                  {t('fa.explain.strengths')}
+                </div>
+                <ul className="space-y-1.5">
+                  {exp.strengths.slice(0, 3).map((s, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
+                      <CheckCircle2 size={12} className="text-emerald-500 shrink-0 mt-0.5" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-orange-500 mb-2">
+                  {t('fa.explain.risks')}
+                </div>
+                <ul className="space-y-1.5">
+                  {exp.risks.slice(0, 3).map((r, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
+                      <AlertTriangle size={12} className="text-orange-500 shrink-0 mt-0.5" />
+                      {r}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
 
-          </div>
-        )}
-      </div>
-    </Layout>
-  );
-}
+            {/* Expanded sections */}
+            {expanded && (
+              <div className="mt-4 pt-4 border-t border-border/40 space-y-4">
+                {([
+                  { key: 'growthAnalysis', label: t('fa.explain.growth') },
+                  { key: 'profitabilityAnalysis', label: t('fa.explain.profitability') },
+                  { key: 'cashFlowAnalysis', label: t('fa.explain.cashflow') },
+                  { key: 'balanceSheetAnalysis', label: t('fa.explain.balance') },
+                  { key: 'valuationAnalysis', label: t('fa.explain.valuation') },
+                  { key: 'peerAnalysis', label: t('fa.explain.peers') },
+                ] as const).map(({ key, label }) => (
+                  exp[key as keyof typeof exp] ? (
+                    <div key={key}>
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
+                      <p className="text-xs text-foreground/85 leading-relaxed">{exp[key as keyof typeof exp] as string}</p>
+                    </div>
+                  ) : null
+                ))}
+                <div>
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                    {t('fa.explain.conclusion')}
+                  </div>
+                  <p className="text-xs text-foreground/85 leading-relaxed">{exp.conclusion}</p>
+                </div>
+              </div>
+            )}
 
-// ── ConfidenceBadge ───────────────────────────────────────────────────────────
-
-function ConfidenceBadge({
-  level,
-  pct,
-  t,
-}: {
-  level: string;
-  pct: number;
-  t: (k: string) => string;
-}) {
-  const color =
-    level === 'high'
-      ? 'text-green-600'
-      : level === 'medium'
-      ? 'text-yellow-600'
-      : 'text-red-600';
-  return (
-    <div className={`text-[10px] mt-0.5 ${color}`}>
-      {t(`fa.confidence.${level}`)} · {t('fa.coverage')}: {pct}%
-    </div>
-  );
-}
-
-// ── Stock header ──────────────────────────────────────────────────────────────
-
-function StockHeader({
-  analysis,
-  t,
-  language,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-  language: string;
-}) {
-  return (
-    <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-4">
-      {analysis.logoUrl && (
-        <img
-          src={analysis.logoUrl}
-          alt={analysis.name}
-          className="w-12 h-12 rounded-lg object-contain border border-border bg-background p-1"
-          onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-        />
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-2xl font-bold font-mono">{analysis.symbol}</span>
-          <span className="text-sm text-muted-foreground truncate">{analysis.name}</span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap mt-0.5">
-          {analysis.sector && (
-            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-              {analysis.sector}
-            </span>
-          )}
-          {analysis.industry && (
-            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-              {analysis.industry}
-            </span>
-          )}
-          {analysis.country && (
-            <span className="text-xs text-muted-foreground">{analysis.country}</span>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-6 flex-wrap">
-        <div className="text-right">
-          <div className="text-xl font-bold font-mono">
-            {analysis.currency} {fmtN(analysis.lastPrice, 2)}
-          </div>
-          <div className="text-xs text-muted-foreground">{analysis.exchange}</div>
-        </div>
-        {analysis.marketCap != null && (
-          <div className="text-right">
-            <div className="text-sm font-semibold">{fmtMoney(analysis.marketCap)}</div>
-            <div className="text-xs text-muted-foreground">Market Cap</div>
-          </div>
-        )}
-        {analysis.enterpriseValue != null && (
-          <div className="text-right">
-            <div className="text-sm font-semibold">{fmtMoney(analysis.enterpriseValue)}</div>
-            <div className="text-xs text-muted-foreground">Enterprise Value</div>
-          </div>
-        )}
-        {analysis.lastFilingDate && (
-          <div className="text-right">
-            <div className="text-xs font-medium">{analysis.lastFilingDate.slice(0, 10)}</div>
-            <div className="text-[10px] text-muted-foreground">{t('fa.lastFiling')}</div>
-          </div>
+            <p className="mt-4 text-[10px] text-muted-foreground/60 leading-relaxed border-t border-border/30 pt-3">
+              {exp.disclaimer}
+            </p>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-// ── Scores section ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Coverage badge
+// ─────────────────────────────────────────────────────────────────────────────
 
-function ScoresSection({
-  analysis,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
+function CoverageBadge({ tier, pct, t, language }: {
+  tier: ReturnType<typeof coverageTier>; pct: number; t: (k: string) => string; language: string;
 }) {
-  const { scores } = analysis;
-  const dims = [
-    { key: 'growth', dim: scores.growth },
-    { key: 'profitability', dim: scores.profitability },
-    { key: 'cashFlow', dim: scores.cashFlow },
-    { key: 'financialStrength', dim: scores.financialStrength },
-    { key: 'capitalEfficiency', dim: scores.capitalEfficiency },
-    { key: 'valuation', dim: scores.valuation },
+  const colors: Record<typeof tier, string> = {
+    full: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20',
+    partial: 'text-yellow-600 bg-yellow-500/10 border-yellow-500/20',
+    limited: 'text-orange-600 bg-orange-500/10 border-orange-500/20',
+    insufficient: 'text-red-600 bg-red-500/10 border-red-500/20',
+  };
+  const labels: Record<typeof tier, string> = {
+    full: language === 'it' ? 'Dati completi' : 'Full data',
+    partial: language === 'it' ? 'Dati parziali' : 'Partial data',
+    limited: language === 'it' ? 'Dati limitati' : 'Limited data',
+    insufficient: language === 'it' ? 'Dati insufficienti' : 'Insufficient data',
+  };
+  return (
+    <span className={`text-[10px] font-medium border rounded-full px-2 py-0.5 ${colors[tier]}`}>
+      {labels[tier]} · {pct.toFixed(0)}%
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECONDARY TABS
+// ─────────────────────────────────────────────────────────────────────────────
+
+type TabKey = 'growth' | 'profitability' | 'cashflow' | 'balance' | 'valuation' | 'competitors' | 'risks';
+
+function SecondaryTabs({ analysis, t, language }: {
+  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+}) {
+  const [tab, setTab] = useState<TabKey>('growth');
+
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: 'growth', label: language === 'it' ? 'Crescita' : 'Growth' },
+    { key: 'profitability', label: language === 'it' ? 'Redditività' : 'Profitability' },
+    { key: 'cashflow', label: language === 'it' ? 'Flussi di cassa' : 'Cash Flow' },
+    { key: 'balance', label: language === 'it' ? 'Bilancio' : 'Balance Sheet' },
+    { key: 'valuation', label: language === 'it' ? 'Valutazione' : 'Valuation' },
+    { key: 'competitors', label: language === 'it' ? 'Competitor' : 'Competitors' },
+    { key: 'risks', label: language === 'it' ? 'Rischi' : 'Risks' },
   ];
 
   return (
-    <SectionCard title={t('fa.section.scores')}>
-      {/* Overall score */}
-      <div className={`flex items-center justify-between rounded-xl border p-4 mb-4 ${scoreBg(scores.overall)}`}>
-        <div>
-          <div className="text-xs text-muted-foreground font-medium mb-0.5">{t('fa.score.overall')}</div>
-          <div className={`text-3xl font-bold ${scoreColor(scores.overall)}`}>{scores.overall}</div>
-          <div className={`text-sm font-semibold ${scoreColor(scores.overall)}`}>
-            {scores.overallLabelEn}
-          </div>
-        </div>
-        <div className="w-24 h-24">
-          <ScoreGauge score={scores.overall} />
-        </div>
-      </div>
-
-      {/* Dimension grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {dims.map(({ key, dim }) => (
-          <DimScoreCard
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Tab bar */}
+      <div className="flex overflow-x-auto border-b border-border/60 bg-muted/10">
+        {tabs.map(({ key, label }) => (
+          <button
             key={key}
-            label={t(`fa.dim.${key}`)}
-            score={dim.score}
-            labelText={dim.labelEn}
-            keyDrivers={dim.keyDrivers}
-          />
+            onClick={() => setTab(key)}
+            className={`px-4 py-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
+              tab === key
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {label}
+          </button>
         ))}
       </div>
-    </SectionCard>
+
+      {/* Tab content */}
+      <div className="p-5">
+        {tab === 'growth' && <GrowthTab analysis={analysis} t={t} />}
+        {tab === 'profitability' && <ProfitabilityTab analysis={analysis} t={t} />}
+        {tab === 'cashflow' && <CashFlowTab analysis={analysis} t={t} language={language} />}
+        {tab === 'balance' && <BalanceTab analysis={analysis} t={t} />}
+        {tab === 'valuation' && <ValuationTab analysis={analysis} t={t} language={language} />}
+        {tab === 'competitors' && <CompetitorsTab analysis={analysis} t={t} language={language} />}
+        {tab === 'risks' && <RisksTab analysis={analysis} t={t} language={language} />}
+      </div>
+    </div>
   );
 }
 
-function ScoreGauge({ score }: { score: number }) {
-  const r = 34;
-  const cx = 48;
-  const cy = 48;
-  const circumference = Math.PI * r; // half circle
-  const fill = (score / 100) * circumference;
-  const color =
-    score >= 80 ? '#22c55e' : score >= 65 ? '#10b981' : score >= 50 ? '#eab308' : score >= 35 ? '#f97316' : '#ef4444';
+// ── Growth tab ────────────────────────────────────────────────────────────────
 
-  return (
-    <svg viewBox="0 0 96 56" className="w-full h-full">
-      <path
-        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none"
-        stroke="#e5e7eb"
-        strokeWidth="8"
-        strokeLinecap="round"
-      />
-      <path
-        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none"
-        stroke={color}
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeDasharray={`${fill} ${circumference}`}
-      />
-    </svg>
-  );
-}
-
-// ── Growth section ────────────────────────────────────────────────────────────
-
-function GrowthSection_({
-  analysis,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-}) {
+function GrowthTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (k: string) => string }) {
   const g = analysis.growth;
-
   const rows: { label: string; metric: GrowthMetric; tooltip?: string }[] = [
     { label: t('fa.metric.revenueYoy'), metric: g.revenueYoy, tooltip: 'Year-over-year revenue growth rate.' },
-    { label: t('fa.metric.revenue3yCagr'), metric: g.revenue3yCagr, tooltip: '3-year compound annual growth rate of revenue.' },
+    { label: t('fa.metric.revenue3yCagr'), metric: g.revenue3yCagr },
     { label: t('fa.metric.revenue5yCagr'), metric: g.revenue5yCagr },
     { label: t('fa.metric.revenueYoYQ'), metric: g.revenueYoYLatestQ },
-    { label: t('fa.metric.epsYoy'), metric: g.epsYoy, tooltip: 'Year-over-year change in diluted EPS.' },
+    { label: t('fa.metric.epsYoy'), metric: g.epsYoy },
     { label: t('fa.metric.eps3yCagr'), metric: g.eps3yCagr },
     { label: t('fa.metric.opIncYoy'), metric: g.operatingIncomeYoy },
     { label: t('fa.metric.netIncYoy'), metric: g.netIncomeYoy },
@@ -937,9 +1116,8 @@ function GrowthSection_({
     { label: t('fa.metric.fcfYoy'), metric: g.fcfYoy },
     { label: t('fa.metric.fcf3yCagr'), metric: g.fcf3yCagr },
   ];
-
   return (
-    <SectionCard title={t('fa.section.growth')}>
+    <div>
       {g.revenueTtm != null && (
         <div className="mb-3 text-xs text-muted-foreground">
           {t('fa.metric.revenueTtm')}: <span className="font-semibold text-foreground">{fmtMoney(g.revenueTtm)}</span>
@@ -949,9 +1127,7 @@ function GrowthSection_({
         </div>
       )}
       <table className="w-full text-sm">
-        <thead>
-          <MetricTableHeader t={t} />
-        </thead>
+        <thead><MetricTableHeader t={t} /></thead>
         <tbody className="divide-y divide-border/40">
           {rows.map(({ label, metric, tooltip }) => (
             <MetricRow
@@ -967,23 +1143,16 @@ function GrowthSection_({
           ))}
         </tbody>
       </table>
-    </SectionCard>
+    </div>
   );
 }
 
-// ── Profitability section ─────────────────────────────────────────────────────
+// ── Profitability tab ─────────────────────────────────────────────────────────
 
-function ProfitabilitySection_({
-  analysis,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-}) {
+function ProfitabilityTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (k: string) => string }) {
   const p = analysis.profitability;
-
   return (
-    <SectionCard title={t('fa.section.profitability')}>
+    <div>
       {p.roeWarning && (
         <div className="mb-3 text-[11px] text-yellow-700 dark:text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2 flex gap-2">
           <AlertTriangle size={13} className="shrink-0 mt-0.5" />
@@ -991,87 +1160,35 @@ function ProfitabilitySection_({
         </div>
       )}
       <table className="w-full text-sm">
-        <thead>
-          <MetricTableHeader t={t} />
-        </thead>
+        <thead><MetricTableHeader t={t} /></thead>
         <tbody className="divide-y divide-border/40">
-          <MetricRow
-            label={t('fa.metric.grossMargin')}
-            value={<span className={pctColor(p.grossMarginTtm)}>{fmtPctRaw(p.grossMarginTtm)}</span>}
-            sub={`3Y avg: ${fmtPctRaw(p.grossMargin3yAvg)}`}
-            peerMedian={p.peerGrossMarginMedian}
-            trend={p.grossMarginTrend}
-            tooltip="Gross profit as % of revenue."
-          />
-          <MetricRow
-            label={t('fa.metric.opMargin')}
-            value={<span className={pctColor(p.operatingMarginTtm)}>{fmtPctRaw(p.operatingMarginTtm)}</span>}
-            sub={`3Y avg: ${fmtPctRaw(p.operatingMargin3yAvg)}`}
-            peerMedian={p.peerOperatingMarginMedian}
-            peerPercentile={p.operatingMarginTtm != null && p.peerOperatingMarginMedian != null
-              ? undefined : undefined}
-            trend={p.operatingMarginTrend}
-            tooltip="Operating income as % of revenue."
-          />
-          <MetricRow
-            label={t('fa.metric.ebitdaMargin')}
-            value={<span className={pctColor(p.ebitdaMarginTtm)}>{fmtPctRaw(p.ebitdaMarginTtm)}</span>}
-            trend={null}
-          />
-          <MetricRow
-            label={t('fa.metric.netMargin')}
-            value={<span className={pctColor(p.netMarginTtm)}>{fmtPctRaw(p.netMarginTtm)}</span>}
-            sub={`3Y avg: ${fmtPctRaw(p.netMargin3yAvg)}`}
-            trend={p.netMarginTrend}
-          />
-          <MetricRow
-            label={t('fa.metric.fcfMargin')}
-            value={<span className={pctColor(p.fcfMarginTtm)}>{fmtPctRaw(p.fcfMarginTtm)}</span>}
-          />
-          <MetricRow
-            label={t('fa.metric.roa')}
-            value={<span className={pctColor(p.roa)}>{fmtPctRaw(p.roa)}</span>}
-            tooltip="Net income / average total assets."
-          />
-          <MetricRow
-            label={t('fa.metric.roe')}
-            value={<span className={pctColor(p.roe)}>{fmtPctRaw(p.roe)}</span>}
-            tooltip="Net income / average shareholders' equity."
-          />
-          <MetricRow
-            label={t('fa.metric.roic')}
-            value={<span className={pctColor(p.roic)}>{fmtPctRaw(p.roic)}</span>}
-            peerMedian={p.peerRoicMedian}
-            tooltip="NOPAT / average invested capital. Measures how efficiently the company uses capital."
-          />
+          <MetricRow label={t('fa.metric.grossMargin')} value={<span className={pctColor(p.grossMarginTtm)}>{fmtPctRaw(p.grossMarginTtm)}</span>} sub={`3Y avg: ${fmtPctRaw(p.grossMargin3yAvg)}`} peerMedian={p.peerGrossMarginMedian} trend={p.grossMarginTrend} tooltip="Gross profit as % of revenue." />
+          <MetricRow label={t('fa.metric.opMargin')} value={<span className={pctColor(p.operatingMarginTtm)}>{fmtPctRaw(p.operatingMarginTtm)}</span>} sub={`3Y avg: ${fmtPctRaw(p.operatingMargin3yAvg)}`} peerMedian={p.peerOperatingMarginMedian} trend={p.operatingMarginTrend} tooltip="Operating income as % of revenue." />
+          <MetricRow label={t('fa.metric.ebitdaMargin')} value={<span className={pctColor(p.ebitdaMarginTtm)}>{fmtPctRaw(p.ebitdaMarginTtm)}</span>} trend={null} />
+          <MetricRow label={t('fa.metric.netMargin')} value={<span className={pctColor(p.netMarginTtm)}>{fmtPctRaw(p.netMarginTtm)}</span>} sub={`3Y avg: ${fmtPctRaw(p.netMargin3yAvg)}`} trend={p.netMarginTrend} />
+          <MetricRow label={t('fa.metric.fcfMargin')} value={<span className={pctColor(p.fcfMarginTtm)}>{fmtPctRaw(p.fcfMarginTtm)}</span>} />
+          <MetricRow label={t('fa.metric.roa')} value={<span className={pctColor(p.roa)}>{fmtPctRaw(p.roa)}</span>} tooltip="Net income / average total assets." />
+          <MetricRow label={t('fa.metric.roe')} value={<span className={pctColor(p.roe)}>{fmtPctRaw(p.roe)}</span>} tooltip="Net income / average shareholders' equity." />
+          <MetricRow label={t('fa.metric.roic')} value={<span className={pctColor(p.roic)}>{fmtPctRaw(p.roic)}</span>} peerMedian={p.peerRoicMedian} tooltip="NOPAT / average invested capital." />
         </tbody>
       </table>
-    </SectionCard>
+    </div>
   );
 }
 
-// ── Cash flow section ─────────────────────────────────────────────────────────
+// ── Cash flow tab ─────────────────────────────────────────────────────────────
 
-function CashFlowSection_({
-  analysis,
-  t,
-  language,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-  language: string;
-}) {
+function CashFlowTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
   const cf = analysis.cashFlow;
   const eqColor: Record<string, string> = {
-    high: 'text-green-600 bg-green-500/10 border-green-500/20',
-    adequate: 'text-yellow-600 bg-yellow-500/10 border-yellow-500/20',
-    weak: 'text-orange-600 bg-orange-500/10 border-orange-500/20',
-    very_weak: 'text-red-600 bg-red-500/10 border-red-500/20',
+    high: 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20',
+    adequate: 'text-yellow-700 bg-yellow-500/10 border-yellow-500/20',
+    weak: 'text-orange-700 bg-orange-500/10 border-orange-500/20',
+    very_weak: 'text-red-700 bg-red-500/10 border-red-500/20',
   };
-
   return (
-    <SectionCard title={t('fa.section.cashflow')}>
-      <table className="w-full text-sm">
+    <div>
+      <table className="w-full text-sm mb-4">
         <thead>
           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
             <th className="pb-1.5 pr-3 text-left font-medium">{t('fa.col.metric')}</th>
@@ -1090,169 +1207,101 @@ function CashFlowSection_({
           ].map(({ l, v, good }) => (
             <tr key={l} className="hover:bg-muted/20">
               <td className="py-2.5 pr-3 text-xs text-muted-foreground">{l}</td>
-              <td className={`py-2.5 text-xs font-medium ${good == null ? '' : good ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {v}
-              </td>
+              <td className={`py-2.5 text-xs font-medium ${good == null ? '' : good ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>{v}</td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <div className={`mt-4 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs ${eqColor[cf.earningsQuality] ?? ''}`}>
+      <div className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs ${eqColor[cf.earningsQuality] ?? ''}`}>
         <span className="font-semibold">{t('fa.metric.earningsQuality')}:</span>
         <span className="font-bold">{t(`fa.eq.${cf.earningsQuality}`)}</span>
-        {cf.earningsQualitySignals.length > 0 && (
-          <span className="text-muted-foreground ml-auto">
-            {cf.earningsQualitySignals.length} signal{cf.earningsQualitySignals.length > 1 ? 's' : ''}
-          </span>
-        )}
       </div>
-    </SectionCard>
+    </div>
   );
 }
 
-// ── Financial strength section ────────────────────────────────────────────────
+// ── Balance sheet tab ─────────────────────────────────────────────────────────
 
-function FinancialStrengthSection_({
-  analysis,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-}) {
+function BalanceTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (k: string) => string }) {
   const fs = analysis.financialStrength;
-
-  return (
-    <SectionCard title={t('fa.section.strength')}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
-            <th className="pb-1.5 pr-3 text-left font-medium">{t('fa.col.metric')}</th>
-            <th className="pb-1.5 text-left font-medium">{t('fa.col.current')}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/40">
-          {[
-            { l: t('fa.metric.cash'), v: fmtMoney(fs.cash), warn: false },
-            { l: t('fa.metric.totalDebt'), v: fmtMoney(fs.totalDebt), warn: false },
-            {
-              l: t('fa.metric.netDebt'),
-              v: fs.isNetCash ? <span className="text-green-600 dark:text-green-400 font-semibold">{t('fa.netCash')}</span> : fmtMoney(fs.netDebt),
-              warn: false,
-            },
-            { l: t('fa.metric.de'), v: fmtN(fs.debtToEquity, 2), warn: fs.debtToEquity != null && fs.debtToEquity > 3 },
-            { l: t('fa.metric.ndEbitda'), v: fs.netDebtToEbitdaIsNm ? <span className="text-muted-foreground italic text-xs">N/M</span> : fmtN(fs.netDebtToEbitda, 2), warn: fs.netDebtToEbitda != null && !fs.netDebtToEbitdaIsNm && fs.netDebtToEbitda > 4 },
-            { l: t('fa.metric.currentRatio'), v: fmtN(fs.currentRatio, 2), warn: fs.currentRatio != null && fs.currentRatio < 1 },
-            { l: t('fa.metric.quickRatio'), v: fmtN(fs.quickRatio, 2), warn: fs.quickRatio != null && fs.quickRatio < 0.7 },
-            { l: t('fa.metric.intCoverage'), v: fmtX(fs.interestCoverage), warn: fs.interestCoverage != null && fs.interestCoverage > 0 && fs.interestCoverage < 2 },
-            { l: t('fa.metric.goodwillAssets'), v: fmtPctRaw(fs.goodwillToAssets), warn: fs.goodwillToAssets != null && fs.goodwillToAssets > 40 },
-          ].map(({ l, v, warn }) => (
-            <tr key={l} className="hover:bg-muted/20">
-              <td className="py-2.5 pr-3 text-xs text-muted-foreground">{l}</td>
-              <td className={`py-2.5 text-xs font-medium ${warn ? 'text-orange-600 dark:text-orange-400' : ''}`}>
-                {v}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </SectionCard>
-  );
-}
-
-// ── Capital efficiency section ────────────────────────────────────────────────
-
-function CapitalEfficiencySection_({
-  analysis,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-}) {
   const ce = analysis.capitalEfficiency;
-
   return (
-    <SectionCard title={t('fa.section.efficiency')}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
-            <th className="pb-1.5 pr-3 text-left font-medium">{t('fa.col.metric')}</th>
-            <th className="pb-1.5 text-left font-medium">{t('fa.col.current')}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/40">
-          {[
-            { l: t('fa.metric.roic'), v: fmtPctRaw(ce.roic), tooltip: 'NOPAT / average invested capital.' },
-            { l: t('fa.metric.assetTurnover'), v: fmtX(ce.assetTurnover, 2), tooltip: 'Revenue / total assets. Higher = more efficient.' },
-            { l: t('fa.metric.dso'), v: ce.dso != null ? `${fmtN(ce.dso, 0)} days` : '—', tooltip: 'Days of revenue tied up in receivables.' },
-            { l: t('fa.metric.dio'), v: ce.dio != null ? `${fmtN(ce.dio, 0)} days` : '—', tooltip: 'Days of COGS tied up in inventory.' },
-            { l: t('fa.metric.dpo'), v: ce.dpo != null ? `${fmtN(ce.dpo, 0)} days` : '—', tooltip: 'Days to pay suppliers.' },
-            { l: t('fa.metric.ccc'), v: ce.cashConversionCycle != null ? `${fmtN(ce.cashConversionCycle, 0)} days` : '—', tooltip: 'DSO + DIO - DPO. Lower = better cash cycle.' },
-          ].map(({ l, v, tooltip }) => (
-            <tr key={l} className="hover:bg-muted/20">
-              <td className="py-2.5 pr-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  {l}
-                  {tooltip && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info size={11} className="cursor-help opacity-50 hover:opacity-100" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-[240px] text-xs">{tooltip}</TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              </td>
-              <td className="py-2.5 text-xs font-medium">{v}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </SectionCard>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t('fa.section.strength')}</h4>
+        <table className="w-full text-sm">
+          <tbody className="divide-y divide-border/40">
+            {[
+              { l: t('fa.metric.cash'), v: fmtMoney(fs.cash) },
+              { l: t('fa.metric.totalDebt'), v: fmtMoney(fs.totalDebt) },
+              { l: t('fa.metric.netDebt'), v: fs.isNetCash ? <span className="text-emerald-600 font-semibold">{t('fa.netCash')}</span> : fmtMoney(fs.netDebt) },
+              { l: t('fa.metric.de'), v: fmtN(fs.debtToEquity, 2), warn: fs.debtToEquity != null && fs.debtToEquity > 3 },
+              { l: t('fa.metric.ndEbitda'), v: fs.netDebtToEbitdaIsNm ? 'N/M' : fmtN(fs.netDebtToEbitda, 2), warn: fs.netDebtToEbitda != null && !fs.netDebtToEbitdaIsNm && fs.netDebtToEbitda > 4 },
+              { l: t('fa.metric.currentRatio'), v: fmtN(fs.currentRatio, 2), warn: fs.currentRatio != null && fs.currentRatio < 1 },
+              { l: t('fa.metric.quickRatio'), v: fmtN(fs.quickRatio, 2), warn: fs.quickRatio != null && fs.quickRatio < 0.7 },
+              { l: t('fa.metric.intCoverage'), v: fmtX(fs.interestCoverage), warn: fs.interestCoverage != null && fs.interestCoverage > 0 && fs.interestCoverage < 2 },
+              { l: t('fa.metric.goodwillAssets'), v: fmtPctRaw(fs.goodwillToAssets), warn: fs.goodwillToAssets != null && fs.goodwillToAssets > 40 },
+            ].map(({ l, v, warn }) => (
+              <tr key={l} className="hover:bg-muted/20">
+                <td className="py-2 pr-3 text-xs text-muted-foreground">{l}</td>
+                <td className={`py-2 text-xs font-medium ${warn ? 'text-orange-600 dark:text-orange-400' : ''}`}>{v}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t('fa.section.efficiency')}</h4>
+        <table className="w-full text-sm">
+          <tbody className="divide-y divide-border/40">
+            {[
+              { l: t('fa.metric.roic'), v: fmtPctRaw(ce.roic) },
+              { l: t('fa.metric.assetTurnover'), v: fmtX(ce.assetTurnover, 2) },
+              { l: t('fa.metric.dso'), v: ce.dso != null ? `${fmtN(ce.dso, 0)} days` : '—' },
+              { l: t('fa.metric.dio'), v: ce.dio != null ? `${fmtN(ce.dio, 0)} days` : '—' },
+              { l: t('fa.metric.dpo'), v: ce.dpo != null ? `${fmtN(ce.dpo, 0)} days` : '—' },
+              { l: t('fa.metric.ccc'), v: ce.cashConversionCycle != null ? `${fmtN(ce.cashConversionCycle, 0)} days` : '—' },
+            ].map(({ l, v }) => (
+              <tr key={l} className="hover:bg-muted/20">
+                <td className="py-2 pr-3 text-xs text-muted-foreground">{l}</td>
+                <td className="py-2 text-xs font-medium">{v}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
-// ── Valuation section ─────────────────────────────────────────────────────────
+// ── Valuation tab ─────────────────────────────────────────────────────────────
 
-function ValuationSection_({
-  analysis,
-  t,
-  language,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-  language: string;
-}) {
+function ValuationTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
   const v = analysis.valuation;
   const mx = v.valuationMatrix;
-
-  const multiples: { label: string; m: ValuationMultiple; tooltip?: string }[] = [
-    { label: t('fa.metric.pe'), m: v.pe, tooltip: 'Price divided by trailing twelve-month earnings per share.' },
-    { label: t('fa.metric.forwardPe'), m: v.forwardPe, tooltip: 'Price divided by next twelve-month consensus EPS estimate.' },
-    { label: t('fa.metric.ps'), m: v.ps, tooltip: 'Market cap / revenue. Useful when earnings are negative.' },
-    { label: t('fa.metric.pb'), m: v.pb, tooltip: 'Market cap / book value of equity.' },
-    { label: t('fa.metric.pFcf'), m: v.pFcf, tooltip: 'Market cap / free cash flow.' },
-    { label: t('fa.metric.evRev'), m: v.evRevenue },
-    { label: t('fa.metric.evEbitda'), m: v.evEbitda, tooltip: 'Enterprise value / EBITDA. Capital-structure-neutral multiple.' },
-    { label: t('fa.metric.evEbit'), m: v.evEbit },
-  ];
-
   const quadrantColors: Record<string, string> = {
-    quality_cheap: 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400',
+    quality_cheap: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400',
     quality_expensive: 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400',
     weak_cheap: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-700 dark:text-yellow-400',
     weak_expensive: 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400',
   };
-
+  const multiples: { label: string; m: ValuationMultiple; tooltip?: string }[] = [
+    { label: t('fa.metric.pe'), m: v.pe, tooltip: 'Price / trailing twelve-month EPS.' },
+    { label: t('fa.metric.forwardPe'), m: v.forwardPe, tooltip: 'Price / next twelve-month consensus EPS.' },
+    { label: t('fa.metric.ps'), m: v.ps },
+    { label: t('fa.metric.pb'), m: v.pb },
+    { label: t('fa.metric.pFcf'), m: v.pFcf },
+    { label: t('fa.metric.evRev'), m: v.evRevenue },
+    { label: t('fa.metric.evEbitda'), m: v.evEbitda },
+    { label: t('fa.metric.evEbit'), m: v.evEbit },
+  ];
   return (
-    <SectionCard title={t('fa.section.valuation')}>
-      {/* Valuation matrix badge */}
+    <div>
       <div className={`mb-4 rounded-lg border px-3 py-2.5 text-xs font-medium ${quadrantColors[mx.quadrant]}`}>
         <div className="font-bold mb-0.5">{t('fa.matrix.title')}</div>
         {language === 'it' ? mx.labelIt : mx.label}
       </div>
-
-      <table className="w-full text-sm mb-3">
+      <table className="w-full text-sm mb-4">
         <thead>
           <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
             <th className="pb-1.5 pr-3 text-left font-medium">{t('fa.col.metric')}</th>
@@ -1264,123 +1313,51 @@ function ValuationSection_({
         </thead>
         <tbody className="divide-y divide-border/40">
           {multiples.map(({ label, m, tooltip }) => (
-            <ValMetricRow
-              key={label}
-              label={label}
-              value={m.value}
-              peerMedian={m.peerMedian}
-              vsPeers={m.vsPeers}
-              vsHistory3y={m.vsHistory3y}
-              tooltip={tooltip}
-            />
+            <ValMetricRow key={label} label={label} value={m.value} peerMedian={m.peerMedian} vsPeers={m.vsPeers} vsHistory3y={m.vsHistory3y} tooltip={tooltip} />
           ))}
         </tbody>
       </table>
-
       <div className="grid grid-cols-3 gap-2 text-xs border-t border-border/40 pt-3">
         {v.dividendYield != null && (
-          <div>
-            <div className="text-muted-foreground">{t('fa.metric.divYield')}</div>
-            <div className="font-semibold">{fmtPctRaw(v.dividendYield)}</div>
-          </div>
+          <div><div className="text-muted-foreground">{t('fa.metric.divYield')}</div><div className="font-semibold">{fmtPctRaw(v.dividendYield)}</div></div>
         )}
         {v.buybackYield != null && (
-          <div>
-            <div className="text-muted-foreground">{t('fa.metric.buybackYield')}</div>
-            <div className="font-semibold">{fmtPctRaw(v.buybackYield)}</div>
-          </div>
+          <div><div className="text-muted-foreground">{t('fa.metric.buybackYield')}</div><div className="font-semibold">{fmtPctRaw(v.buybackYield)}</div></div>
         )}
         {v.dilution1y != null && (
           <div>
             <div className="text-muted-foreground">{t('fa.metric.dilution1y')}</div>
-            <div className={`font-semibold ${v.dilution1y > 3 ? 'text-orange-500' : ''}`}>
-              {fmtPct(v.dilution1y)}
-            </div>
+            <div className={`font-semibold ${v.dilution1y > 3 ? 'text-orange-500' : ''}`}>{fmtPct(v.dilution1y)}</div>
           </div>
         )}
       </div>
-    </SectionCard>
+    </div>
   );
 }
 
-// ── Peer comparison ───────────────────────────────────────────────────────────
+// ── Competitors tab ───────────────────────────────────────────────────────────
 
-function PeerSection({
-  analysis,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-}) {
+function CompetitorsTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
   const { peers } = analysis;
-
   if (!peers.peers.length) {
     return (
-      <SectionCard title={t('fa.section.peers')}>
-        <p className="text-sm text-muted-foreground">{t('fa.peers.noPeers')}</p>
-      </SectionCard>
+      <p className="text-sm text-muted-foreground">
+        {language === 'it'
+          ? 'Peer group insufficiente per un confronto affidabile.'
+          : 'Peer group insufficient for a reliable comparison.'}
+      </p>
     );
   }
-
   const cols: { key: keyof PeerCompanyData; label: string; fmt: (v: number | null | undefined) => string }[] = [
     { key: 'marketCap', label: t('fa.peers.mktCap'), fmt: fmtMoney },
     { key: 'revenueGrowthYoy', label: t('fa.peers.revGrowth'), fmt: (v) => fmtPct(v) },
     { key: 'grossMargin', label: t('fa.peers.grossMargin'), fmt: fmtPctRaw },
     { key: 'operatingMargin', label: t('fa.peers.opMargin'), fmt: fmtPctRaw },
     { key: 'roic', label: t('fa.peers.roic'), fmt: fmtPctRaw },
-    { key: 'pe', label: t('fa.peers.pe'), fmt: (v) => fmtX(v) },
-    { key: 'evToEbitda', label: t('fa.peers.evEbitda'), fmt: (v) => fmtX(v) },
-    { key: 'evToSales', label: t('fa.peers.evSales'), fmt: (v) => fmtX(v) },
+    { key: 'pe', label: t('fa.peers.pe'), fmt: fmtX },
+    { key: 'evToEbitda', label: t('fa.peers.evEbitda'), fmt: fmtX },
+    { key: 'evToSales', label: t('fa.peers.evSales'), fmt: fmtX },
   ];
-
-  // Highlight subject company row
-  const subjectSymbol = analysis.symbol;
-
-  return (
-    <SectionCard title={t('fa.section.peers')}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs min-w-[600px]">
-          <thead>
-            <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
-              <th className="pb-2 pr-3 text-left font-medium">{t('fa.peers.symbol')}</th>
-              {cols.map((c) => (
-                <th key={c.key} className="pb-2 pr-3 text-right font-medium">{c.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/40">
-            {/* Subject company row */}
-            <SubjectRow analysis={analysis} cols={cols} t={t} />
-            {/* Peers */}
-            {peers.peers.map((peer) => (
-              <tr key={peer.symbol} className="hover:bg-muted/20">
-                <td className="py-2 pr-3 font-mono font-semibold text-foreground">
-                  {peer.symbol}
-                </td>
-                {cols.map((c) => (
-                  <td key={c.key} className="py-2 pr-3 text-right text-muted-foreground">
-                    {c.fmt(peer[c.key] as number | null)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </SectionCard>
-  );
-}
-
-function SubjectRow({
-  analysis,
-  cols,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  cols: { key: keyof PeerCompanyData; label: string; fmt: (v: number | null | undefined) => string }[];
-  t: (k: string) => string;
-}) {
-  // Build a PeerCompanyData-like object from the analysis
   const subject: PeerCompanyData = {
     symbol: analysis.symbol,
     name: analysis.name,
@@ -1396,120 +1373,360 @@ function SubjectRow({
     evToSales: analysis.valuation.evRevenue.value,
     priceToFcf: analysis.valuation.pFcf.value,
   };
-
   return (
-    <tr className="bg-primary/5 border-primary/20 font-medium">
-      <td className="py-2 pr-3 font-mono font-bold text-primary">
-        {analysis.symbol} ★
-      </td>
-      {cols.map((c) => (
-        <td key={c.key} className="py-2 pr-3 text-right text-foreground font-semibold">
-          {c.fmt(subject[c.key] as number | null)}
-        </td>
-      ))}
-    </tr>
-  );
-}
-
-// ── Historical section ────────────────────────────────────────────────────────
-
-function HistoricalSection_({
-  analysis,
-  t,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-}) {
-  const h = analysis.historical;
-
-  return (
-    <SectionCard title={t('fa.section.historical')}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <HistoryBarChart data={h.revenue} label={t('fa.hist.revenue')} />
-        <HistoryBarChart data={h.netIncome} label={t('fa.hist.netIncome')} />
-        <HistoryBarChart data={h.fcf} label={t('fa.hist.fcf')} />
-        <HistoryBarChart data={h.eps} label={t('fa.hist.eps')} isMoney={false} />
-        <HistoryLineChart
-          series={[
-            { data: h.grossMargin, label: 'Gross Margin' },
-            { data: h.operatingMargin, label: 'Op Margin' },
-            { data: h.netMargin, label: 'Net Margin' },
-          ]}
-        />
-        <HistoryBarChart data={h.netDebt} label={t('fa.hist.netDebt')} />
-      </div>
-    </SectionCard>
-  );
-}
-
-// ── Flags & Strengths ─────────────────────────────────────────────────────────
-
-function FlagsAndStrengths({
-  analysis,
-  t,
-  language,
-}: {
-  analysis: FundamentalAnalysis;
-  t: (k: string) => string;
-  language: string;
-}) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Red flags */}
-      <SectionCard title={t('fa.section.flags')}>
-        {analysis.redFlags.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('fa.flags.none')}</p>
-        ) : (
-          <div className="space-y-2">
-            {analysis.redFlags.map((flag) => (
-              <div
-                key={flag.key}
-                className={`rounded-lg border px-3 py-2.5 text-xs ${severityColor(flag.severity)}`}
-              >
-                <div className="flex items-center justify-between mb-1 gap-2">
-                  <span className="font-semibold">
-                    {language === 'it' ? flag.titleIt : flag.titleEn}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-current/10 border border-current/20 shrink-0">
-                    {t(`fa.flag.${flag.severity}`)}
-                  </span>
-                </div>
-                <div className="font-mono text-[10px] opacity-70 mb-1">{flag.dataPoint}</div>
-                <div className="opacity-80 leading-relaxed">
-                  {language === 'it' ? flag.explanationIt : flag.explanationEn}
-                </div>
-              </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs min-w-[600px]">
+        <thead>
+          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
+            <th className="pb-2 pr-3 text-left font-medium">{t('fa.peers.symbol')}</th>
+            {cols.map(c => (
+              <th key={c.key} className="pb-2 pr-3 text-right font-medium">{c.label}</th>
             ))}
-          </div>
-        )}
-      </SectionCard>
-
-      {/* Strengths */}
-      <SectionCard title={t('fa.section.strengths')}>
-        {analysis.strengths.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('fa.strengths.none')}</p>
-        ) : (
-          <div className="space-y-2">
-            {analysis.strengths.map((s) => (
-              <div
-                key={s.key}
-                className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2.5 text-xs text-green-700 dark:text-green-400"
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <CheckCircle2 size={12} className="shrink-0" />
-                  <span className="font-semibold">
-                    {language === 'it' ? s.titleIt : s.titleEn}
-                  </span>
-                </div>
-                <div className="font-mono text-[10px] opacity-70 mb-1">{s.dataPoint}</div>
-                <div className="opacity-80 leading-relaxed">
-                  {language === 'it' ? s.explanationIt : s.explanationEn}
-                </div>
-              </div>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/40">
+          <tr className="bg-primary/5 border-primary/20 font-medium">
+            <td className="py-2 pr-3 font-mono font-bold text-primary">{analysis.symbol} ★</td>
+            {cols.map(c => (
+              <td key={c.key} className="py-2 pr-3 text-right text-foreground font-semibold">
+                {c.fmt(subject[c.key] as number | null)}
+              </td>
             ))}
-          </div>
-        )}
-      </SectionCard>
+          </tr>
+          {peers.peers.map(peer => (
+            <tr key={peer.symbol} className="hover:bg-muted/20">
+              <td className="py-2 pr-3 font-mono font-semibold">{peer.symbol}</td>
+              {cols.map(c => (
+                <td key={c.key} className="py-2 pr-3 text-right text-muted-foreground">
+                  {c.fmt(peer[c.key] as number | null)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
+  );
+}
+
+// ── Risks tab ─────────────────────────────────────────────────────────────────
+
+function RisksTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
+  return (
+    <div className="space-y-3">
+      {analysis.redFlags.length === 0 && analysis.strengths.length === 0 && (
+        <p className="text-sm text-muted-foreground">{t('fa.flags.none')}</p>
+      )}
+      {analysis.redFlags.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('fa.section.flags')}</h4>
+          {analysis.redFlags.map(flag => (
+            <div key={flag.key} className={`rounded-lg border px-3 py-2.5 text-xs ${severityColor(flag.severity)}`}>
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <span className="font-semibold">{language === 'it' ? flag.titleIt : flag.titleEn}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0">{t(`fa.flag.${flag.severity}`)}</span>
+              </div>
+              <div className="font-mono text-[10px] opacity-70 mb-1">{flag.dataPoint}</div>
+              <div className="opacity-80 leading-relaxed">{language === 'it' ? flag.explanationIt : flag.explanationEn}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {analysis.strengths.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-2 mt-4">{t('fa.section.strengths')}</h4>
+          {analysis.strengths.map(s => (
+            <div key={s.key} className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 text-xs text-emerald-700 dark:text-emerald-400">
+              <div className="flex items-center gap-1.5 mb-1">
+                <CheckCircle2 size={12} className="shrink-0" />
+                <span className="font-semibold">{language === 'it' ? s.titleIt : s.titleEn}</span>
+              </div>
+              <div className="font-mono text-[10px] opacity-70 mb-1">{s.dataPoint}</div>
+              <div className="opacity-80 leading-relaxed">{language === 'it' ? s.explanationIt : s.explanationEn}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY HEADER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CompanyHeader({ analysis, t, language }: {
+  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+}) {
+  return (
+    <div className="bg-card border border-border rounded-xl px-5 py-4 flex flex-wrap items-center gap-4">
+      {analysis.logoUrl && (
+        <img
+          src={analysis.logoUrl}
+          alt={analysis.name}
+          className="w-10 h-10 rounded-lg object-contain border border-border bg-background p-1 shrink-0"
+          onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+        />
+      )}
+
+      {/* Name / sector */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-xl font-bold font-mono">{analysis.symbol}</span>
+          <span className="text-sm text-muted-foreground truncate max-w-[280px]">{analysis.name}</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+          {analysis.sector && (
+            <span className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{analysis.sector}</span>
+          )}
+          {analysis.industry && (
+            <span className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{analysis.industry}</span>
+          )}
+          {analysis.country && (
+            <span className="text-[11px] text-muted-foreground">{analysis.country}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Price + metrics */}
+      <div className="flex items-center gap-5 flex-wrap">
+        <div>
+          <div className="text-lg font-bold font-mono tabular-nums">
+            {analysis.currency} {fmtN(analysis.lastPrice, 2)}
+          </div>
+          <div className="text-[11px] text-muted-foreground">{analysis.exchange}</div>
+        </div>
+        {analysis.marketCap != null && (
+          <div>
+            <div className="text-sm font-semibold tabular-nums">{fmtMoney(analysis.marketCap)}</div>
+            <div className="text-[11px] text-muted-foreground">Market Cap</div>
+          </div>
+        )}
+        {analysis.enterpriseValue != null && (
+          <div>
+            <div className="text-sm font-semibold tabular-nums">{fmtMoney(analysis.enterpriseValue)}</div>
+            <div className="text-[11px] text-muted-foreground">EV</div>
+          </div>
+        )}
+        {analysis.lastFilingDate && (
+          <div>
+            <div className="text-xs font-medium">{analysis.lastFilingDate.slice(0, 10)}</div>
+            <div className="text-[11px] text-muted-foreground">{t('fa.lastFiling')}</div>
+          </div>
+        )}
+        <CoverageBadge
+          tier={coverageTier(analysis.dataCoverage.coveragePct)}
+          pct={analysis.dataCoverage.coveragePct}
+          t={t}
+          language={language}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HISTORICAL MINI CHART (used in tabs only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function HistoryBarChart({ data, label, isMoney = true, isPct = false, height = 140 }: {
+  data: HistoricalDataPoint[]; label: string; isMoney?: boolean; isPct?: boolean; height?: number;
+}) {
+  if (!data.length) return null;
+  const chartData = data.map(d => ({ year: d.year, value: d.value }));
+  const fmt = (v: number) => isPct ? `${v.toFixed(1)}%` : isMoney ? fmtMoney(v) : v.toFixed(2);
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground font-medium mb-1.5">{label}</div>
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+          <XAxis dataKey="year" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+          <YAxis hide />
+          <RechartsTooltip formatter={(v: number) => [fmt(v), label]} contentStyle={{ fontSize: 11 }} />
+          <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1} />
+          <Bar dataKey="value" radius={[2, 2, 0, 0]}>
+            {chartData.map((d, i) => (
+              <Cell key={i} fill={d.value == null ? '#e5e7eb' : d.value >= 0 ? '#10b981' : '#ef4444'} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function FundamentalAnalysisPage() {
+  const { t, language } = useTranslation();
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery] = useDebounce(searchQuery, 300);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+
+  const { data: searchResults, isLoading: isSearching } = useSearchTickers(
+    { query: debouncedQuery },
+    { query: { enabled: debouncedQuery.length > 0, queryKey: getSearchTickersQueryKey({ query: debouncedQuery }) } },
+  );
+
+  const { data: analysis, isLoading: isAnalyzing, isError } = useGetFundamentalAnalysis(
+    { symbol: selectedSymbol ?? '', language },
+    {
+      query: {
+        enabled: !!selectedSymbol,
+        queryKey: getGetFundamentalAnalysisQueryKey({ symbol: selectedSymbol ?? '', language }),
+      },
+    },
+  );
+
+  const selectSymbol = (s: string) => {
+    queryClient.removeQueries({
+      queryKey: getGetFundamentalAnalysisQueryKey({ symbol: s, language }),
+    });
+    setSelectedSymbol(s);
+    setSearchQuery('');
+  };
+
+  return (
+    <Layout>
+      <div className="py-6 space-y-4 max-h-[calc(100vh-64px)] overflow-y-auto">
+
+        {/* ── Search bar ──────────────────────────────────────────────────── */}
+        <div className="relative z-20 w-full md:max-w-lg">
+          <div className="relative flex items-center">
+            <Search className="absolute left-3 text-muted-foreground w-4 h-4" />
+            <input
+              type="text"
+              placeholder={t('fa.search.placeholder')}
+              className="w-full h-11 pl-9 pr-4 bg-card border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 text-muted-foreground hover:text-foreground">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {debouncedQuery.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border rounded-lg shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+              {isSearching ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">{t('fa.search.loading')}</div>
+              ) : searchResults && searchResults.length > 0 ? (
+                searchResults.map(r => (
+                  <button
+                    key={r.symbol}
+                    className="w-full text-left px-4 py-3 hover:bg-accent flex items-center justify-between border-b border-border/50 last:border-0"
+                    onClick={() => selectSymbol(r.symbol)}
+                  >
+                    <div>
+                      <span className="font-bold text-foreground text-sm">{r.symbol}</span>
+                      <span className="ml-2 text-xs text-muted-foreground line-clamp-1">{r.name}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded-sm ml-2 shrink-0">{r.exchange}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="p-4 text-center text-sm text-muted-foreground">{t('fa.search.empty')}</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Empty state ──────────────────────────────────────────────────── */}
+        {!selectedSymbol && (
+          <div className="flex items-center justify-center py-24">
+            <div className="text-center max-w-sm">
+              <div className="w-14 h-14 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+                <Search size={24} className="text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">{t('fa.noSymbol')}</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Loading ──────────────────────────────────────────────────────── */}
+        {selectedSymbol && isAnalyzing && (
+          <div className="flex items-center justify-center py-24">
+            <div className="text-center max-w-md bg-card border border-border rounded-2xl p-8 shadow-sm">
+              <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+              <p className="font-semibold text-foreground mb-1">
+                {language === 'it' ? 'Analisi di' : 'Analysing'}{' '}
+                <span className="text-primary font-mono">{selectedSymbol}</span>
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-3">{t('fa.loading')}</p>
+              <p className="text-[11px] text-muted-foreground/50">
+                {language === 'it' ? 'Circa 30–60 secondi' : 'Takes about 30–60 seconds'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Error ────────────────────────────────────────────────────────── */}
+        {selectedSymbol && isError && (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center max-w-sm bg-destructive/5 border border-destructive/20 rounded-xl p-6">
+              <AlertTriangle size={24} className="text-destructive mx-auto mb-3" />
+              <p className="text-sm text-foreground font-medium mb-1">{t('fa.error')}</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Main content ─────────────────────────────────────────────────── */}
+        {analysis && !isAnalyzing && (
+          <div className="space-y-4">
+
+            {/* 1. Company header */}
+            <CompanyHeader analysis={analysis} t={t} language={language} />
+
+            {/* 2. Coverage warning (insufficient only) */}
+            {coverageTier(analysis.dataCoverage.coveragePct) === 'insufficient' && (
+              <div className="flex items-start gap-3 rounded-xl border border-orange-500/20 bg-orange-500/5 px-4 py-3 text-sm">
+                <AlertTriangle size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-foreground">
+                    {language === 'it'
+                      ? `Dati insufficienti per un'analisi fondamentale affidabile.`
+                      : `Insufficient data for a reliable fundamental analysis.`}
+                  </span>{' '}
+                  <span className="text-muted-foreground text-xs">
+                    {language === 'it'
+                      ? `Disponibili ${analysis.dataCoverage.coveragePct.toFixed(0)}% delle metriche necessarie. Le analisi con classificazioni e score non sono mostrate.`
+                      : `${analysis.dataCoverage.coveragePct.toFixed(0)}% of required metrics available. Scores and classifications are not shown.`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 3. 5 Key signal cards */}
+            <div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                {language === 'it' ? 'I 5 indicatori chiave' : '5 Key Fundamental Signals'}
+              </h2>
+              <KeySignalCards analysis={analysis} t={t} language={language} />
+            </div>
+
+            {/* 4. Business Performance chart */}
+            <BusinessPerformanceChart analysis={analysis} t={t} language={language} />
+
+            {/* 5. Valuation vs History chart */}
+            <ValuationSnapshotChart analysis={analysis} t={t} language={language} />
+
+            {/* 6. AI panel (compact) */}
+            <CompactAIPanel analysis={analysis} t={t} language={language} />
+
+            {/* 7. Secondary tabs */}
+            <SecondaryTabs analysis={analysis} t={t} language={language} />
+
+            {/* Disclaimer */}
+            <p className="text-[10px] text-muted-foreground/50 leading-relaxed pb-4">
+              {t('fa.disclaimer')}
+            </p>
+          </div>
+        )}
+      </div>
+    </Layout>
   );
 }
