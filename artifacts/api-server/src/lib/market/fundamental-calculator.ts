@@ -201,6 +201,45 @@ export interface HistoricalSection {
   sharesOutstanding: HistoricalDataPoint[];
 }
 
+export interface PriceVsBusinessPoint {
+  date: string;
+  label: string;
+  price: number | null;
+  epsTtm: number | null;
+  revenuePerShare: number | null;
+  fcfPerShare: number | null;
+}
+
+export interface PriceVsBusinessSection {
+  available: boolean;
+  points: PriceVsBusinessPoint[];
+  priceChange1y: number | null;
+  priceChange3y: number | null;
+  priceChange5y: number | null;
+}
+
+export interface NewsItem {
+  uuid?: string;
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: string;
+  thumbnail: string | null;
+}
+
+export interface NewsMomentumSection {
+  available: boolean;
+  items: NewsItem[];
+}
+
+export interface DataConfidenceMatrix {
+  financialStatements: "high" | "medium" | "low";
+  historicalPrices: "high" | "medium" | "low" | "unavailable";
+  historicalValuation: "high" | "medium" | "low" | "unavailable";
+  peerData: "high" | "medium" | "low" | "unavailable";
+  newsData: "high" | "medium" | "low" | "unavailable";
+}
+
 export interface DimensionScore {
   score: number;
   label: ScoreLabel;
@@ -281,9 +320,17 @@ export interface FundamentalData {
   strengths: FundamentalStrength[];
   historical: HistoricalSection;
   dataCoverage: DataCoverage;
+  priceVsBusiness: PriceVsBusinessSection;
+  newsMomentum: NewsMomentumSection;
+  dataConfidenceMatrix: DataConfidenceMatrix;
 }
 
 // ── Raw data bundle ───────────────────────────────────────────────────────────
+
+export interface MonthlyPricePoint {
+  date: string; // "YYYY-MM"
+  adjClose: number;
+}
 
 export interface FundamentalRawData {
   profile: FmpProfile;
@@ -301,6 +348,8 @@ export interface FundamentalRawData {
   peerProfiles: FmpProfile[];
   peerKeyMetricsTtm: FmpKeyMetrics[][];
   peerIncomeAnnual: FmpIncomeStatement[][];
+  historicalMonthlyPrices: MonthlyPricePoint[];
+  newsItems: NewsItem[];
 }
 
 // ── Helper utilities ──────────────────────────────────────────────────────────
@@ -820,7 +869,28 @@ export function computeFundamentals(raw: FundamentalRawData): FundamentalData {
     };
   }
 
-  const historicalPes = kma.map((k) => k.peRatio ?? k.peRatioTTM ?? null);
+  // Compute historical P/E from year-end prices × annual EPS (fixes null-historicalPes bug)
+  function findPriceAtYearEnd(targetDate: string): number | null {
+    if (!raw.historicalMonthlyPrices.length) return null;
+    const targetYM = targetDate.slice(0, 7); // "YYYY-MM"
+    let best: number | null = null;
+    for (const p of raw.historicalMonthlyPrices) {
+      if (p.date <= targetYM) best = p.adjClose;
+      else break;
+    }
+    return best;
+  }
+
+  const historicalPes = ia.map((inc) => {
+    const priceAtYearEnd = findPriceAtYearEnd(inc.date);
+    if (priceAtYearEnd == null || inc.epsDiluted == null || inc.epsDiluted <= 0) {
+      // Fall back to stored ratio if available
+      const idx = ia.indexOf(inc);
+      return kma[idx]?.peRatio ?? kma[idx]?.peRatioTTM ?? null;
+    }
+    return round2(priceAtYearEnd / inc.epsDiluted);
+  });
+
   const historicalPs = kma.map((k) => k.priceToSalesRatio ?? k.priceToSalesRatioTTM ?? null);
   const historicalPb = kma.map((k) => k.priceToBookRatio ?? k.priceToBookRatioTTM ?? null);
   const historicalPfcf = kma.map((k) => k.priceToFreeCashFlowsRatioTTM ?? k.evToFreeCashFlowTTM ?? null);
@@ -1342,6 +1412,18 @@ export function computeFundamentals(raw: FundamentalRawData): FundamentalData {
     ],
   };
 
+  // ── Price vs Business Section ─────────────────────────────────────────────
+  const priceVsBusiness = computePriceVsBusiness(raw, currentPrice, growth.epsDilutedTtm, growth.revenueTtm, cashFlow.fcfTtm, ia, cfa);
+
+  // ── News Momentum Section ─────────────────────────────────────────────────
+  const newsMomentum: NewsMomentumSection = {
+    available: raw.newsItems.length > 0,
+    items: raw.newsItems.slice(0, 10),
+  };
+
+  // ── Data Confidence Matrix ────────────────────────────────────────────────
+  const dataConfidenceMatrix = computeDataConfidenceMatrix(raw, historicalPes);
+
   return {
     symbol: profile.symbol,
     name: profile.companyName,
@@ -1369,7 +1451,146 @@ export function computeFundamentals(raw: FundamentalRawData): FundamentalData {
     strengths,
     historical,
     dataCoverage,
+    priceVsBusiness,
+    newsMomentum,
+    dataConfidenceMatrix,
   };
+}
+
+// ── Price vs Business computation ─────────────────────────────────────────────
+
+function computePriceVsBusiness(
+  raw: FundamentalRawData,
+  currentPrice: number,
+  epsDilutedTtm: number | null,
+  revenueTtm: number | null,
+  fcfTtm: number | null,
+  ia: FmpIncomeStatement[],
+  cfa: FmpCashFlow[],
+): PriceVsBusinessSection {
+  const prices = raw.historicalMonthlyPrices;
+  const hasPrices = prices.length >= 12;
+
+  if (!hasPrices) {
+    return { available: false, points: [], priceChange1y: null, priceChange3y: null, priceChange5y: null };
+  }
+
+  function findPrice(targetDate: string): number | null {
+    const targetYM = targetDate.slice(0, 7);
+    let best: number | null = null;
+    for (const p of prices) {
+      if (p.date <= targetYM) best = p.adjClose;
+      else break;
+    }
+    return best;
+  }
+
+  // Build chronological annual points (ia is newest-first, reverse to oldest-first)
+  const annualReversed = [...ia].reverse();
+  const cfMap = new Map(cfa.map((c) => [c.date.slice(0, 7), c]));
+
+  const points: PriceVsBusinessPoint[] = [];
+
+  for (const inc of annualReversed) {
+    const priceAtYear = findPrice(inc.date);
+    const shares = inc.weightedAverageShsOutDil;
+    const cfEntry = cfMap.get(inc.date.slice(0, 7));
+    const fcf = cfEntry?.freeCashFlow ??
+      (cfEntry?.operatingCashFlow != null && cfEntry?.capitalExpenditure != null
+        ? cfEntry.operatingCashFlow + cfEntry.capitalExpenditure
+        : null);
+
+    points.push({
+      date: inc.date.slice(0, 10),
+      label: inc.calendarYear ?? inc.date.slice(0, 4),
+      price: priceAtYear,
+      epsTtm: inc.epsDiluted != null ? Math.round(inc.epsDiluted * 100) / 100 : null,
+      revenuePerShare: shares != null && shares > 0 && inc.revenue != null
+        ? Math.round((inc.revenue / shares) * 100) / 100
+        : null,
+      fcfPerShare: shares != null && shares > 0 && fcf != null
+        ? Math.round((fcf / shares) * 100) / 100
+        : null,
+    });
+  }
+
+  // Add TTM point with current price
+  const sharesLatest = ia[0]?.weightedAverageShsOutDil ?? null;
+  points.push({
+    date: new Date().toISOString().slice(0, 10),
+    label: "TTM",
+    price: currentPrice,
+    epsTtm: epsDilutedTtm != null ? Math.round(epsDilutedTtm * 100) / 100 : null,
+    revenuePerShare: sharesLatest != null && sharesLatest > 0 && revenueTtm != null
+      ? Math.round((revenueTtm / sharesLatest) * 100) / 100
+      : null,
+    fcfPerShare: sharesLatest != null && sharesLatest > 0 && fcfTtm != null
+      ? Math.round((fcfTtm / sharesLatest) * 100) / 100
+      : null,
+  });
+
+  // Compute price changes using monthly history
+  function pctChange(yearsBack: number): number | null {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - yearsBack);
+    const targetYM = d.toISOString().slice(0, 7);
+    const past = findPrice(targetYM);
+    if (past == null || past === 0) return null;
+    return Math.round(((currentPrice - past) / past) * 10000) / 100;
+  }
+
+  return {
+    available: true,
+    points,
+    priceChange1y: pctChange(1),
+    priceChange3y: pctChange(3),
+    priceChange5y: pctChange(5),
+  };
+}
+
+// ── Data Confidence Matrix computation ────────────────────────────────────────
+
+function computeDataConfidenceMatrix(
+  raw: FundamentalRawData,
+  historicalPes: (number | null)[],
+): DataConfidenceMatrix {
+  // Financial statements
+  const annualYears = raw.incomeAnnual.length;
+  const quarterlyPeriods = raw.incomeQuarterly.length;
+  let financialStatements: "high" | "medium" | "low";
+  if (annualYears >= 3 && quarterlyPeriods >= 4) financialStatements = "high";
+  else if (annualYears >= 1 || quarterlyPeriods >= 2) financialStatements = "medium";
+  else financialStatements = "low";
+
+  // Historical prices
+  const priceMonths = raw.historicalMonthlyPrices.length;
+  let historicalPrices: "high" | "medium" | "low" | "unavailable";
+  if (priceMonths >= 60) historicalPrices = "high";
+  else if (priceMonths >= 24) historicalPrices = "medium";
+  else if (priceMonths >= 6) historicalPrices = "low";
+  else historicalPrices = "unavailable";
+
+  // Historical valuation (computed P/E points)
+  const validPes = historicalPes.filter((v) => v != null).length;
+  let historicalValuation: "high" | "medium" | "low" | "unavailable";
+  if (validPes >= 3) historicalValuation = "high";
+  else if (validPes >= 1) historicalValuation = "medium";
+  else if (priceMonths >= 12 && raw.incomeAnnual.some((inc) => inc.epsDiluted != null && inc.epsDiluted > 0))
+    historicalValuation = "low";
+  else historicalValuation = "unavailable";
+
+  // Peer data — Yahoo Finance doesn't support peer retrieval
+  const peerData: "high" | "medium" | "low" | "unavailable" = "unavailable";
+
+  // News data
+  const newsCount = raw.newsItems.length;
+  let newsData: "high" | "medium" | "low" | "unavailable";
+  if (newsCount >= 5) newsData = "high";
+  else if (newsCount >= 2) newsData = "medium";
+  else if (newsCount >= 1) newsData = "low";
+  else newsData = "unavailable";
+
+  return { financialStatements, historicalPrices, historicalValuation, peerData, newsData };
 }
 
 // ── Score key driver helpers ──────────────────────────────────────────────────

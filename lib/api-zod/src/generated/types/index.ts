@@ -6,10 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aICatalyst';
+export * from './aIRisk';
+export * from './aIRiskSeverity';
 export * from './analysisExplanation';
 export * from './candle';
 export * from './capitalEfficiencySection';
 export * from './cashFlowSection';
+export * from './dataConfidenceMatrix';
+export * from './dataConfidenceMatrixFinancialStatements';
+export * from './dataConfidenceMatrixHistoricalPrices';
+export * from './dataConfidenceMatrixHistoricalValuation';
+export * from './dataConfidenceMatrixNewsData';
+export * from './dataConfidenceMatrixPeerData';
 export * from './dataCoverage';
 export * from './dataCoverageConfidenceLevel';
 export * from './dimensionScore';
@@ -37,8 +46,12 @@ export * from './leveledExplanation';
 export * from './levelType';
 export * from './macdPoint';
 export * from './marketStructure';
+export * from './newsItem';
+export * from './newsMomentumSection';
 export * from './peerCompanyData';
 export * from './peerComparisonSection';
+export * from './priceVsBusinessPoint';
+export * from './priceVsBusinessSection';
 export * from './profitabilitySection';
 export * from './redFlag';
 export * from './redFlagSeverity';

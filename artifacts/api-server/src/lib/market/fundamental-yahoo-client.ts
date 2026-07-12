@@ -19,7 +19,7 @@ import type {
   FmpFinancialRatios,
   FmpAnalystEstimate,
 } from "./fundamental-fmp-client";
-import type { FundamentalRawData } from "./fundamental-calculator";
+import type { FundamentalRawData, NewsItem } from "./fundamental-calculator";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -270,6 +270,8 @@ export async function fetchYahooFundamentalData(
   let ftsQtrBs: any[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let ftsQtrCf: any[] = [];
+  let historicalMonthlyPrices: { date: string; adjClose: number }[] = [];
+  let newsItems: NewsItem[] = [];
 
   try {
     const results = await Promise.allSettled([
@@ -316,6 +318,18 @@ export async function fetchYahooFundamentalData(
         { period1: "2022-01-01", type: "quarterly", module: "cash-flow" },
         { validateResult: false },
       ),
+      // 7: Monthly price history for Price vs Business chart + historical P/E
+      yahooFinance.chart(
+        symbol,
+        { period1: "2014-01-01", interval: "1mo" },
+        { validateResult: false },
+      ),
+      // 8: Recent news
+      yahooFinance.search(
+        symbol,
+        { newsCount: 10 },
+        { validateResult: false },
+      ),
     ]);
 
     if (results[0].status === "rejected") {
@@ -330,6 +344,62 @@ export async function fetchYahooFundamentalData(
     if (results[4].status === "fulfilled") ftsQtrFin = (results[4].value as unknown[]) ?? [];
     if (results[5].status === "fulfilled") ftsQtrBs = (results[5].value as unknown[]) ?? [];
     if (results[6].status === "fulfilled") ftsQtrCf = (results[6].value as unknown[]) ?? [];
+
+    // Extract monthly price history from chart (call 7)
+    if (results[7]?.status === "fulfilled") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const chartData = (results[7] as PromiseFulfilledResult<any>).value;
+      const quotes = chartData?.quotes ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      historicalMonthlyPrices = quotes
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((q: any) => q.adjclose != null || q.close != null)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((q: any) => {
+          const d: Date = q.date instanceof Date ? q.date : new Date(q.date);
+          return {
+            date: d.toISOString().slice(0, 7), // "YYYY-MM"
+            adjClose: q.adjclose ?? q.close,
+          };
+        })
+        .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date));
+    } else if (results[7]?.status === "rejected") {
+      logger.warn({ symbol, err: (results[7] as PromiseRejectedResult).reason }, "Yahoo chart fetch failed (non-fatal)");
+    }
+
+    // Extract news items from search (call 8)
+    if (results[8]?.status === "fulfilled") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const searchData = (results[8] as PromiseFulfilledResult<any>).value;
+      const rawNews = searchData?.news ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      newsItems = rawNews.slice(0, 10).map((n: any) => {
+        const pub: Date | number | string | undefined = n.providerPublishTime;
+        let publishedAt: string;
+        if (pub instanceof Date) {
+          publishedAt = pub.toISOString();
+        } else if (typeof pub === "number") {
+          publishedAt = new Date(pub * 1000).toISOString();
+        } else {
+          publishedAt = String(pub ?? "");
+        }
+        const thumbResolutions: unknown[] = n.thumbnail?.resolutions ?? [];
+        const thumb = thumbResolutions.length > 0
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? ((thumbResolutions[0] as any).url as string | null) ?? null
+          : null;
+        return {
+          uuid: n.uuid ?? "",
+          title: n.title ?? "",
+          publisher: n.publisher ?? "",
+          link: n.link ?? "",
+          publishedAt,
+          thumbnail: thumb,
+        };
+      });
+    } else if (results[8]?.status === "rejected") {
+      logger.warn({ symbol, err: (results[8] as PromiseRejectedResult).reason }, "Yahoo news fetch failed (non-fatal)");
+    }
   } catch (err) {
     logger.error({ symbol, err }, "Yahoo Finance fetch failed");
     return null;
@@ -562,5 +632,7 @@ export async function fetchYahooFundamentalData(
     peerProfiles: [],
     peerKeyMetricsTtm: [],
     peerIncomeAnnual: [],
+    historicalMonthlyPrices,
+    newsItems,
   };
 }

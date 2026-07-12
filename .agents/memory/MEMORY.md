@@ -1,2 +1,3 @@
 - [FMP API migration](fmp-stable-api.md) — Financial Modeling Prep retired free `/api/v3/*` endpoints; use `/stable/*` paths instead.
 - [Orval params name collision](orval-params-collision.md) — mixing a path param with query params on one operation causes a TS2308 collision; model the operation as all-query-params instead.
+- [Fundamental analysis redesign](fundamental-redesign.md) — Full redesign completed: concise AI output, real price data from Yahoo chart API, news momentum, data confidence matrix.

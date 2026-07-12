@@ -1,14 +1,17 @@
 /**
- * Analisi Fondamentale — Complete redesign
+ * Analisi Fondamentale — Full redesign
  *
- * Layout priority (document §13):
- * 1. Company header (compact, all key fields)
- * 2. Coverage gate
- * 3. Five key signal cards
- * 4. "Business Performance" chart — indexed to 100 (EPS, Revenue, FCF, NetIncome)
- * 5. "Valuation vs History" snapshot chart
- * 6. Secondary tabs: Growth | Profitability | Cash Flow | Balance Sheet | Valuation | Competitors | Risks
- * 7. Compact AI panel (headline + summary + 3 strengths + 3 risks)
+ * Layout:
+ * 1. Search bar
+ * 2. Company header with per-category data confidence matrix
+ * 3. "Our Take" AI verdict block (headline + 80-word summary + catalysts/risks)
+ * 4. 4 Investment snapshot cards
+ * 5. Price vs Business chart (real price + EPS/RevPerShare/FCFPerShare, indexed 100)
+ * 6. Valuation vs History chart
+ * 7. News Momentum section (or "unavailable")
+ * 8. Catalysts & Risks two columns (AI output)
+ * 9. Financial detail tabs (Growth / Profitability / CF / Balance / Valuation)
+ * 10. Methodology disclaimer
  */
 
 import React, { useState, useMemo } from 'react';
@@ -28,7 +31,6 @@ import type {
   RedFlag,
   FundamentalStrength,
   HistoricalDataPoint,
-  PeerCompanyData,
   Trend,
 } from '@workspace/api-client-react';
 import { useDebounce } from 'use-debounce';
@@ -39,14 +41,12 @@ import {
   Minus,
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Info,
-  ChevronRight,
   BarChart2,
   X,
+  Newspaper,
+  ExternalLink,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -63,7 +63,6 @@ import {
   Tooltip as RechartsTooltip,
   ReferenceLine,
   Cell,
-  Legend,
   CartesianGrid,
 } from 'recharts';
 
@@ -102,8 +101,22 @@ function fmtX(v: number | null | undefined, decimals = 1): string {
   return `${v.toFixed(decimals)}x`;
 }
 
+function fmtTimeAgo(iso: string, language: string): string {
+  try {
+    const d = new Date(iso);
+    const diff = Date.now() - d.getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 24) return language === 'it' ? `${h}h fa` : `${h}h ago`;
+    const days = Math.floor(h / 24);
+    if (days < 7) return language === 'it' ? `${days}g fa` : `${days}d ago`;
+    return d.toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { month: 'short', day: 'numeric' });
+  } catch {
+    return '';
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Color helpers  (green/red used sparingly — descriptive, not buy/sell signals)
+// Color helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 function pctColor(v: number | null | undefined, higherBetter = true): string {
@@ -139,17 +152,6 @@ function InfoTip({ text }: { text: string }) {
       </TooltipTrigger>
       <TooltipContent className="max-w-[260px] text-xs">{text}</TooltipContent>
     </Tooltip>
-  );
-}
-
-function SectionCard({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
-  return (
-    <div id={id} className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-border/60 bg-muted/20">
-        <h3 className="font-semibold text-sm text-foreground">{title}</h3>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
   );
 }
 
@@ -229,101 +231,11 @@ function ValMetricRow({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Coverage gate helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-function coverageTier(pct: number): 'full' | 'partial' | 'limited' | 'insufficient' {
-  if (pct >= 80) return 'full';
-  if (pct >= 60) return 'partial';
-  if (pct >= 40) return 'limited';
-  return 'insufficient';
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Card 1 — Valuation expansion / contraction
-// ─────────────────────────────────────────────────────────────────────────────
-
-function classifyPeVsHistory(vsHistory3y: number | null | undefined, language: string): {
-  label: string; color: string;
-} {
-  if (vsHistory3y == null) return { label: '—', color: 'text-muted-foreground' };
-  if (vsHistory3y <= -20) return {
-    label: language === 'it' ? 'Molto più economica della storia' : 'Much cheaper than own history',
-    color: 'text-blue-600 dark:text-blue-400',
-  };
-  if (vsHistory3y <= -5) return {
-    label: language === 'it' ? 'Più economica della storia' : 'Cheaper than own history',
-    color: 'text-blue-500 dark:text-blue-400',
-  };
-  if (vsHistory3y >= 20) return {
-    label: language === 'it' ? 'Valutazione molto più cara della storia' : 'Much more expensive than history',
-    color: 'text-orange-600 dark:text-orange-400',
-  };
-  if (vsHistory3y >= 5) return {
-    label: language === 'it' ? 'Valutazione leggermente superiore alla storia' : 'Slightly above historical valuation',
-    color: 'text-orange-500 dark:text-orange-400',
-  };
-  return {
-    label: language === 'it' ? 'In linea con la valutazione storica' : 'In line with historical valuation',
-    color: 'text-muted-foreground',
-  };
-}
-
-function classifyEpsGrowthMomentum(epsYoy: number | null, rev3yCagr: number | null, language: string): {
-  label: string; badge: string;
-} {
-  const it = language === 'it';
-  if (epsYoy == null || rev3yCagr == null) return {
-    label: '—', badge: 'text-muted-foreground bg-muted',
-  };
-  if (epsYoy > rev3yCagr + 5) return {
-    label: it ? 'Accelerazione' : 'Accelerating',
-    badge: 'text-emerald-700 bg-emerald-500/10 border-emerald-500/25',
-  };
-  if (epsYoy > 0 && rev3yCagr > 0) return {
-    label: it ? 'Crescita stabile' : 'Stable growth',
-    badge: 'text-blue-700 bg-blue-500/10 border-blue-500/25',
-  };
-  if (epsYoy < rev3yCagr - 5) return {
-    label: it ? 'Rallentamento' : 'Slowing',
-    badge: 'text-yellow-700 bg-yellow-500/10 border-yellow-500/25',
-  };
-  if (epsYoy < 0) return {
-    label: it ? 'Contrazione' : 'Contracting',
-    badge: 'text-red-700 bg-red-500/10 border-red-500/25',
-  };
-  return {
-    label: it ? 'Crescita stabile' : 'Stable growth',
-    badge: 'text-blue-700 bg-blue-500/10 border-blue-500/25',
-  };
-}
-
-function classifyBusinessQuality(
-  opMargin: number | null, fcfMargin: number | null, roic: number | null, language: string,
-): { label: string; color: string } {
-  const it = language === 'it';
-  const score = [
-    opMargin != null ? (opMargin > 20 ? 2 : opMargin > 10 ? 1 : 0) : 0,
-    fcfMargin != null ? (fcfMargin > 15 ? 2 : fcfMargin > 5 ? 1 : 0) : 0,
-    roic != null ? (roic > 15 ? 2 : roic > 8 ? 1 : 0) : 0,
-  ].reduce((a, b) => a + b, 0);
-  if (score >= 5) return { label: it ? 'Molto forte' : 'Very strong', color: 'text-emerald-600' };
-  if (score >= 3) return { label: it ? 'Forte' : 'Strong', color: 'text-emerald-500' };
-  if (score >= 2) return { label: it ? 'Neutrale' : 'Neutral', color: 'text-muted-foreground' };
-  if (score >= 1) return { label: it ? 'Debole' : 'Weak', color: 'text-orange-500' };
-  return { label: it ? 'Molto debole' : 'Very weak', color: 'text-red-500' };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// KEY SIGNAL CARDS
-// ─────────────────────────────────────────────────────────────────────────────
-
 function SignalCard({ title, children, subtitle }: {
   title: string; subtitle?: string; children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3 min-h-[180px]">
+    <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2.5 min-h-[170px]">
       <div>
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</div>
         {subtitle && <div className="text-[10px] text-muted-foreground/60 mt-0.5">{subtitle}</div>}
@@ -344,12 +256,226 @@ function SignalRow({ label, value, valueClass }: {
   );
 }
 
-function KeySignalCards({ analysis, t, language }: {
-  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
-}) {
-  const { growth, profitability, cashFlow, financialStrength, valuation } = analysis;
+// ─────────────────────────────────────────────────────────────────────────────
+// Data confidence matrix (per-category dots)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // ── Card 1: Valuation expansion/contraction ───────────────────────────────
+type ConfidenceLevel = 'high' | 'medium' | 'low' | 'unavailable';
+
+function confidenceDotClass(level: ConfidenceLevel): string {
+  if (level === 'high') return 'bg-emerald-500';
+  if (level === 'medium') return 'bg-yellow-500';
+  if (level === 'low') return 'bg-orange-500';
+  return 'bg-muted-foreground/30';
+}
+
+function DataConfidenceMatrixBadges({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
+}) {
+  const dcm = analysis.dataConfidenceMatrix;
+  if (!dcm) return null;
+
+  const it = language === 'it';
+  const categories: { id: string; label: string; level: ConfidenceLevel }[] = [
+    { id: 'financialStatements', label: it ? 'Bilanci' : 'Financials', level: dcm.financialStatements as ConfidenceLevel },
+    { id: 'historicalPrices', label: it ? 'Prezzi' : 'Prices', level: dcm.historicalPrices as ConfidenceLevel },
+    { id: 'historicalValuation', label: it ? 'Val. storica' : 'Val. history', level: dcm.historicalValuation as ConfidenceLevel },
+    { id: 'peerData', label: it ? 'Peer' : 'Peers', level: dcm.peerData as ConfidenceLevel },
+    { id: 'newsData', label: it ? 'News' : 'News', level: dcm.newsData as ConfidenceLevel },
+  ];
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">
+        {it ? 'Dati' : 'Data'}
+      </span>
+      {categories.map(({ id, label, level }) => (
+        <Tooltip key={id}>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1 cursor-default">
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${confidenceDotClass(level)}`} />
+              <span className="text-[10px] text-muted-foreground">{label}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="text-xs capitalize">
+            {level === 'unavailable' ? (it ? 'Non disponibile' : 'Unavailable') : level}
+          </TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPANY HEADER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CompanyHeader({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
+}) {
+  const pvb = analysis.priceVsBusiness;
+  return (
+    <div className="bg-card border border-border rounded-xl px-5 py-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-4">
+        {analysis.logoUrl && (
+          <img
+            src={analysis.logoUrl}
+            alt={analysis.name}
+            className="w-10 h-10 rounded-lg object-contain border border-border bg-background p-1 shrink-0"
+            onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+          />
+        )}
+
+        {/* Name / sector */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-xl font-bold font-mono">{analysis.symbol}</span>
+            <span className="text-sm text-muted-foreground truncate max-w-[280px]">{analysis.name}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            {analysis.sector && (
+              <span className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{analysis.sector}</span>
+            )}
+            {analysis.industry && (
+              <span className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{analysis.industry}</span>
+            )}
+            {analysis.country && (
+              <span className="text-[11px] text-muted-foreground">{analysis.country}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Price + metrics */}
+        <div className="flex items-center gap-5 flex-wrap">
+          <div>
+            <div className="text-lg font-bold font-mono tabular-nums">
+              {analysis.currency} {fmtN(analysis.lastPrice, 2)}
+            </div>
+            {pvb?.priceChange1y != null && (
+              <div className={`text-[11px] font-medium ${pctColor(pvb.priceChange1y)}`}>
+                {fmtPct(pvb.priceChange1y)} {language === 'it' ? '(1A)' : '(1Y)'}
+              </div>
+            )}
+            <div className="text-[11px] text-muted-foreground">{analysis.exchange}</div>
+          </div>
+          {analysis.marketCap != null && (
+            <div>
+              <div className="text-sm font-semibold tabular-nums">{fmtMoney(analysis.marketCap)}</div>
+              <div className="text-[11px] text-muted-foreground">Market Cap</div>
+            </div>
+          )}
+          {analysis.enterpriseValue != null && (
+            <div>
+              <div className="text-sm font-semibold tabular-nums">{fmtMoney(analysis.enterpriseValue)}</div>
+              <div className="text-[11px] text-muted-foreground">EV</div>
+            </div>
+          )}
+          {analysis.lastFilingDate && (
+            <div>
+              <div className="text-xs font-medium">{analysis.lastFilingDate.slice(0, 10)}</div>
+              <div className="text-[11px] text-muted-foreground">{language === 'it' ? 'Ultima filing' : 'Last filing'}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Data confidence matrix */}
+      {analysis.dataConfidenceMatrix && (
+        <DataConfidenceMatrixBadges analysis={analysis} language={language} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OUR TAKE block — AI verdict
+// ─────────────────────────────────────────────────────────────────────────────
+
+function OurTakeBlock({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
+}) {
+  const exp = analysis.explanation;
+  const it = language === 'it';
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+      {/* Headline */}
+      <p className="text-base font-bold text-foreground leading-snug">{exp.headline}</p>
+
+      {/* Our Take paragraph */}
+      <p className="text-sm text-foreground/85 leading-relaxed">{exp.ourTake}</p>
+
+      {/* 4 one-liners */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {[
+          { icon: '📈', label: it ? 'Business' : 'Business', text: exp.businessLine, neutral: true },
+          { icon: '🔢', label: it ? 'Valutazione' : 'Valuation', text: exp.valuationLine, neutral: true },
+          { icon: '⚡', label: it ? 'Momentum' : 'Momentum', text: exp.momentumLine, neutral: true },
+          { icon: '⚠️', label: it ? 'Rischio principale' : 'Main risk', text: exp.mainRisk, risk: true },
+        ].map(({ icon, label, text, risk }) => (
+          <div key={label} className={`flex items-start gap-2.5 rounded-lg px-3 py-2 border ${risk ? 'border-orange-500/20 bg-orange-500/5' : 'border-border bg-muted/20'}`}>
+            <span className="text-base shrink-0 mt-px">{icon}</span>
+            <div className="min-w-0">
+              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${risk ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'}`}>
+                {label}
+              </div>
+              <p className="text-xs text-foreground/85 leading-snug">{text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Metrics to watch */}
+      {exp.metricsToWatch?.length > 0 && (
+        <div className="border-t border-border/40 pt-3">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            {it ? 'Metriche da monitorare' : 'Metrics to Watch'}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {exp.metricsToWatch.map((m, i) => (
+              <span key={i} className="text-xs px-2.5 py-0.5 bg-muted rounded-full text-muted-foreground border border-border">
+                {m}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Disclaimer */}
+      <p className="text-[10px] text-muted-foreground/50 leading-relaxed border-t border-border/30 pt-3">
+        {exp.disclaimer}
+      </p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4 INVESTMENT SNAPSHOT CARDS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function KeySignalCards({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
+}) {
+  const { growth, profitability, valuation, financialStrength } = analysis;
+  const pvb = analysis.priceVsBusiness;
+  const news = analysis.newsMomentum;
+  const it = language === 'it';
+
+  // Business Trend verdict
+  function businessTrendLabel(): { label: string; color: string } {
+    const ry = growth.revenueYoy.isNm ? null : growth.revenueYoy.value;
+    const ey = growth.epsYoy.isNm ? null : growth.epsYoy.value;
+    const fy = growth.fcfYoy.isNm ? null : growth.fcfYoy.value;
+    const pos = [ry, ey, fy].filter(v => v != null && v > 0).length;
+    const neg = [ry, ey, fy].filter(v => v != null && v < 0).length;
+    if (pos >= 2 && ry != null && ry > 15) return { label: it ? 'Accelerazione' : 'Accelerating', color: 'text-emerald-600' };
+    if (pos >= 2) return { label: it ? 'Crescita' : 'Growing', color: 'text-emerald-500' };
+    if (neg >= 2) return { label: it ? 'Contrazione' : 'Contracting', color: 'text-red-500' };
+    if (pos >= 1) return { label: it ? 'Misto' : 'Mixed', color: 'text-muted-foreground' };
+    return { label: it ? 'Dati insufficienti' : 'Insufficient data', color: 'text-muted-foreground' };
+  }
+
+  // Primary valuation multiple
   const primaryMultiple =
     valuation.pe.value != null && valuation.pe.value > 0 && valuation.pe.value < 200
       ? { label: 'P/E', m: valuation.pe }
@@ -359,288 +485,229 @@ function KeySignalCards({ analysis, t, language }: {
           ? { label: 'P/FCF', m: valuation.pFcf }
           : null;
 
-  const vsHistClass = classifyPeVsHistory(primaryMultiple?.m.vsHistory3y, language);
-
-  // ── Card 2: Valuation multiples ───────────────────────────────────────────
-  // ── Card 3: Growth momentum ───────────────────────────────────────────────
-  const momentum = classifyEpsGrowthMomentum(
-    growth.epsYoy.isNm ? null : (growth.epsYoy.value ?? null),
-    growth.revenue3yCagr.isNm ? null : (growth.revenue3yCagr.value ?? null),
-    language,
-  );
-
-  // ── Card 4: Business quality ──────────────────────────────────────────────
-  const quality = classifyBusinessQuality(
-    profitability.operatingMarginTtm ?? null,
-    profitability.fcfMarginTtm ?? null,
-    profitability.roic ?? null,
-    language,
-  );
-
-  // ── Card 5: Financial strength ────────────────────────────────────────────
-  const dilution = valuation.dilution3y;
+  const bt = businessTrendLabel();
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-      {/* Card 1 — Prezzo vs Utili / Valuation change */}
-      <SignalCard
-        title={t('fa.card.valChange')}
-        subtitle={primaryMultiple ? `${primaryMultiple.label}: ${fmtX(primaryMultiple.m.value)}` : undefined}
-      >
-        {primaryMultiple ? (
-          <>
-            <SignalRow
-              label={t('fa.card.current')}
-              value={fmtX(primaryMultiple.m.value)}
-            />
-            <SignalRow
-              label={t('fa.card.hist5y')}
-              value={fmtX(primaryMultiple.m.historicalMedian5y)}
-            />
-            <SignalRow
-              label={t('fa.card.peerMedian')}
-              value={fmtX(primaryMultiple.m.peerMedian)}
-            />
-            <div className="mt-auto pt-2 border-t border-border/40">
-              <span className={`text-[11px] font-semibold ${vsHistClass.color}`}>
-                {vsHistClass.label}
-              </span>
-            </div>
-          </>
-        ) : (
-          <p className="text-xs text-muted-foreground">{t('fa.nm')}</p>
-        )}
-      </SignalCard>
-
-      {/* Card 2 — Valuation multiples vs peers */}
-      <SignalCard title={t('fa.card.valuation')}>
-        <SignalRow label="P/E" value={fmtX(valuation.pe.value)} />
-        <SignalRow label="EV/EBITDA" value={fmtX(valuation.evEbitda.value)} />
-        <SignalRow label="P/FCF" value={fmtX(valuation.pFcf.value)} />
-        <SignalRow label="EV/Sales" value={fmtX(valuation.evRevenue.value)} />
-        {primaryMultiple?.m.vsPeers != null && (
-          <div className="mt-auto pt-2 border-t border-border/40">
-            <span className={`text-[11px] font-semibold ${pctColor(primaryMultiple.m.vsPeers, false)}`}>
-              {primaryMultiple.m.vsPeers > 0
-                ? `+${primaryMultiple.m.vsPeers.toFixed(0)}% ${t('fa.card.vsPeers')}`
-                : `${primaryMultiple.m.vsPeers.toFixed(0)}% ${t('fa.card.vsPeers')}`}
-            </span>
-          </div>
-        )}
-      </SignalCard>
-
-      {/* Card 3 — Growth */}
-      <SignalCard title={t('fa.card.growth')}>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Card 1 — Business Trend */}
+      <SignalCard title={it ? 'Trend Business' : 'Business Trend'}>
         <SignalRow
-          label={t('fa.metric.revenueYoy')}
+          label={it ? 'Ricavi YoY' : 'Revenue YoY'}
           value={growth.revenueYoy.isNm ? 'N/M' : fmtPct(growth.revenueYoy.value)}
           valueClass={growth.revenueYoy.isNm ? 'text-muted-foreground' : pctColor(growth.revenueYoy.value)}
         />
         <SignalRow
-          label={t('fa.metric.revenue3yCagr')}
-          value={growth.revenue3yCagr.isNm ? 'N/M' : fmtPct(growth.revenue3yCagr.value)}
-          valueClass={growth.revenue3yCagr.isNm ? 'text-muted-foreground' : pctColor(growth.revenue3yCagr.value)}
-        />
-        <SignalRow
-          label={t('fa.metric.epsYoy')}
+          label={it ? 'EPS YoY' : 'EPS YoY'}
           value={growth.epsYoy.isNm ? 'N/M' : fmtPct(growth.epsYoy.value)}
           valueClass={growth.epsYoy.isNm ? 'text-muted-foreground' : pctColor(growth.epsYoy.value)}
         />
         <SignalRow
-          label={t('fa.metric.fcfYoy')}
+          label={it ? 'Margine op.' : 'Op. margin'}
+          value={fmtPctRaw(profitability.operatingMarginTtm)}
+        />
+        <SignalRow
+          label={it ? 'FCF YoY' : 'FCF YoY'}
           value={growth.fcfYoy.isNm ? 'N/M' : fmtPct(growth.fcfYoy.value)}
           valueClass={growth.fcfYoy.isNm ? 'text-muted-foreground' : pctColor(growth.fcfYoy.value)}
         />
         <div className="mt-auto pt-2 border-t border-border/40">
-          <span className={`text-[11px] font-semibold border rounded-full px-2 py-0.5 ${momentum.badge}`}>
-            {momentum.label}
-          </span>
+          <span className={`text-[11px] font-semibold ${bt.color}`}>{bt.label}</span>
         </div>
       </SignalCard>
 
-      {/* Card 4 — Business Quality */}
-      <SignalCard title={t('fa.card.quality')}>
-        <SignalRow
-          label={t('fa.metric.opMargin')}
-          value={fmtPctRaw(profitability.operatingMarginTtm)}
-          valueClass={pctColor(profitability.operatingMarginTtm)}
-        />
-        <SignalRow
-          label={t('fa.metric.fcfMargin')}
-          value={fmtPctRaw(profitability.fcfMarginTtm)}
-          valueClass={pctColor(profitability.fcfMarginTtm)}
-        />
-        <SignalRow
-          label={t('fa.metric.roic')}
-          value={fmtPctRaw(profitability.roic)}
-          valueClass={pctColor(profitability.roic)}
-        />
-        <SignalRow
-          label={`${language === 'it' ? 'Trend 3A' : '3Y trend'}`}
-          value={profitability.operatingMarginTrend === 'improving'
-            ? (language === 'it' ? '↑ Espansione' : '↑ Expanding')
-            : profitability.operatingMarginTrend === 'declining'
-              ? (language === 'it' ? '↓ Contrazione' : '↓ Contracting')
-              : (language === 'it' ? '→ Stabile' : '→ Stable')}
-          valueClass={profitability.operatingMarginTrend === 'improving'
-            ? 'text-emerald-600'
-            : profitability.operatingMarginTrend === 'declining'
-              ? 'text-red-500'
-              : 'text-muted-foreground'}
-        />
+      {/* Card 2 — Price vs Business */}
+      <SignalCard title={it ? 'Prezzo vs Business' : 'Price vs Business'}>
+        {pvb?.available ? (
+          <>
+            <SignalRow
+              label={it ? 'Prezzo 1A' : 'Price 1Y'}
+              value={fmtPct(pvb.priceChange1y)}
+              valueClass={pctColor(pvb.priceChange1y)}
+            />
+            <SignalRow
+              label={it ? 'Prezzo 3A' : 'Price 3Y'}
+              value={fmtPct(pvb.priceChange3y)}
+              valueClass={pctColor(pvb.priceChange3y)}
+            />
+            <SignalRow
+              label={it ? 'Prezzo 5A' : 'Price 5Y'}
+              value={fmtPct(pvb.priceChange5y)}
+              valueClass={pctColor(pvb.priceChange5y)}
+            />
+            <SignalRow
+              label={it ? 'Ricavi 3A CAGR' : 'Revenue 3Y CAGR'}
+              value={growth.revenue3yCagr.isNm ? 'N/M' : fmtPct(growth.revenue3yCagr.value)}
+              valueClass={growth.revenue3yCagr.isNm ? 'text-muted-foreground' : pctColor(growth.revenue3yCagr.value)}
+            />
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center gap-1.5 py-2">
+            <BarChart2 size={18} className="text-muted-foreground opacity-30" />
+            <p className="text-[10px] text-muted-foreground text-center">
+              {it ? 'Prezzi storici non disponibili' : 'Historical prices unavailable'}
+            </p>
+          </div>
+        )}
+      </SignalCard>
+
+      {/* Card 3 — Valuation */}
+      <SignalCard title={it ? 'Valutazione' : 'Valuation'}
+        subtitle={primaryMultiple ? primaryMultiple.label : undefined}>
+        {primaryMultiple ? (
+          <>
+            <SignalRow label={it ? 'Attuale' : 'Current'} value={fmtX(primaryMultiple.m.value)} />
+            <SignalRow label={it ? 'Mediana 5A' : '5Y median'} value={fmtX(primaryMultiple.m.historicalMedian5y)} />
+            <SignalRow label="P/E" value={fmtX(valuation.pe.value)} />
+            <SignalRow label="EV/EBITDA" value={fmtX(valuation.evEbitda.value)} />
+            {primaryMultiple.m.vsHistory3y != null && (
+              <div className="mt-auto pt-2 border-t border-border/40">
+                <span className={`text-[11px] font-semibold ${pctColor(primaryMultiple.m.vsHistory3y, false)}`}>
+                  {primaryMultiple.m.vsHistory3y > 0 ? '+' : ''}{primaryMultiple.m.vsHistory3y.toFixed(0)}% {it ? 'vs storia 3A' : 'vs 3Y history'}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">{it ? 'N/D' : 'N/A'}</p>
+        )}
+      </SignalCard>
+
+      {/* Card 4 — News Momentum */}
+      <SignalCard title={it ? 'Momentum News' : 'News Momentum'}>
+        {news?.available && news.items.length > 0 ? (
+          <>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Newspaper size={13} className="text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{news.items.length} {it ? 'articoli recenti' : 'recent articles'}</span>
+            </div>
+            {news.items.slice(0, 3).map((item, i) => (
+              <div key={i} className="text-[10px] text-muted-foreground border-t border-border/30 pt-1.5 mt-1">
+                <div className="line-clamp-2 leading-snug">{item.title}</div>
+                <div className="text-muted-foreground/60 mt-0.5">{item.publisher}</div>
+              </div>
+            ))}
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center gap-1.5 py-2">
+            <Newspaper size={18} className="text-muted-foreground opacity-30" />
+            <p className="text-[10px] text-muted-foreground text-center">
+              {it ? 'News non disponibili' : 'News unavailable'}
+            </p>
+          </div>
+        )}
         <div className="mt-auto pt-2 border-t border-border/40">
-          <span className={`text-[11px] font-semibold ${quality.color}`}>{quality.label}</span>
+          <SignalRow
+            label={it ? 'Forza finanziaria' : 'Fin. strength'}
+            value={financialStrength.isNetCash ? (it ? 'Cassa netta' : 'Net cash') : fmtX(financialStrength.netDebtToEbitdaIsNm ? null : financialStrength.netDebtToEbitda) + ' ND/EBITDA'}
+            valueClass={financialStrength.isNetCash ? 'text-emerald-600' : ''}
+          />
         </div>
-      </SignalCard>
-
-      {/* Card 5 — Financial Strength */}
-      <SignalCard title={t('fa.card.strength')}>
-        <SignalRow
-          label={t('fa.metric.netDebt')}
-          value={financialStrength.isNetCash ? t('fa.netCash') : fmtMoney(financialStrength.netDebt)}
-          valueClass={financialStrength.isNetCash ? 'text-emerald-600' : ''}
-        />
-        <SignalRow
-          label={t('fa.metric.ndEbitda')}
-          value={financialStrength.netDebtToEbitdaIsNm ? 'N/M' : fmtN(financialStrength.netDebtToEbitda, 1)}
-          valueClass={financialStrength.netDebtToEbitda != null && !financialStrength.netDebtToEbitdaIsNm && financialStrength.netDebtToEbitda > 4
-            ? 'text-orange-500' : ''}
-        />
-        <SignalRow
-          label={t('fa.metric.intCoverage')}
-          value={fmtX(financialStrength.interestCoverage)}
-          valueClass={financialStrength.interestCoverage != null && financialStrength.interestCoverage < 2
-            ? 'text-red-500' : ''}
-        />
-        <SignalRow
-          label={language === 'it' ? 'Diluzione 3A CAGR' : '3Y dilution CAGR'}
-          value={valuation.dilution3y != null ? fmtPct(valuation.dilution3y) : '—'}
-          valueClass={dilution != null && dilution > 3 ? 'text-orange-500' : ''}
-        />
-        <SignalRow
-          label={t('fa.metric.fcfPerShare')}
-          value={fmtN(cashFlow.fcfPerShareTtm, 2)}
-        />
       </SignalCard>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INDEXED BUSINESS PERFORMANCE CHART
-// "Has the price followed the business?"
+// PRICE vs BUSINESS CHART (real price + per-share fundamentals, indexed to 100)
 // ─────────────────────────────────────────────────────────────────────────────
 
-type ChartSeries = 'eps' | 'revenue' | 'fcf' | 'netIncome';
-type ChartPeriod = '3Y' | '5Y' | '10Y' | 'Max';
+type PvBSeries = 'price' | 'eps' | 'revPerShare' | 'fcfPerShare';
+type PvBPeriod = '1Y' | '3Y' | '5Y' | 'Max';
 
-const SERIES_COLORS: Record<ChartSeries, string> = {
-  eps: '#3b82f6',
-  revenue: '#8b5cf6',
-  fcf: '#10b981',
-  netIncome: '#f59e0b',
+const PVB_COLORS: Record<PvBSeries, string> = {
+  price: '#3b82f6',
+  eps: '#10b981',
+  revPerShare: '#8b5cf6',
+  fcfPerShare: '#f59e0b',
 };
 
-function indexToHundred(points: HistoricalDataPoint[], periodYears: number | null): {
-  data: { year: string; value: number | null }[];
-  startValue: number | null;
-  endValue: number | null;
-  changePct: number | null;
-} {
-  if (!points.length) return { data: [], startValue: null, endValue: null, changePct: null };
-  const filtered = periodYears != null
-    ? points.slice(-Math.min(periodYears + 1, points.length))
-    : points;
-  if (!filtered.length) return { data: [], startValue: null, endValue: null, changePct: null };
-  const base = filtered[0].value;
-  if (base == null || base === 0) return { data: [], startValue: null, endValue: null, changePct: null };
-  const indexed = filtered.map(p => ({
-    year: p.year,
-    value: p.value != null ? Math.round((p.value / base) * 100 * 10) / 10 : null,
-  }));
-  const end = indexed[indexed.length - 1]?.value;
-  return {
-    data: indexed,
-    startValue: filtered[0].value ?? null,
-    endValue: filtered[filtered.length - 1]?.value ?? null,
-    changePct: end != null ? end - 100 : null,
-  };
-}
-
-function BusinessPerformanceChart({ analysis, t, language }: {
-  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+function PriceVsBusinessChart({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
 }) {
-  const [period, setPeriod] = useState<ChartPeriod>('5Y');
-  const [activeSeries, setActiveSeries] = useState<Set<ChartSeries>>(new Set(['eps', 'revenue']));
+  const pvb = analysis.priceVsBusiness;
+  const it = language === 'it';
 
-  const periods: ChartPeriod[] = ['3Y', '5Y', '10Y', 'Max'];
-  const periodYears: Record<ChartPeriod, number | null> = { '3Y': 3, '5Y': 5, '10Y': 10, 'Max': null };
+  if (!pvb?.available || pvb.points.length < 2) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6 text-center">
+        <BarChart2 size={24} className="text-muted-foreground mx-auto mb-2 opacity-40" />
+        <p className="text-sm font-semibold text-foreground mb-1">
+          {it ? 'Dati di prezzo non disponibili' : 'Price history unavailable'}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {it
+            ? 'Sono necessari almeno 12 mesi di dati storici sui prezzi per costruire questo grafico.'
+            : 'At least 12 months of historical price data are required to build this chart.'}
+        </p>
+      </div>
+    );
+  }
 
-  const seriesMap: Record<ChartSeries, HistoricalDataPoint[]> = {
-    eps: analysis.historical.eps,
-    revenue: analysis.historical.revenue,
-    fcf: analysis.historical.fcf,
-    netIncome: analysis.historical.netIncome,
+  const [period, setPeriod] = useState<PvBPeriod>('5Y');
+  const [activeSeries, setActiveSeries] = useState<Set<PvBSeries>>(new Set(['price', 'eps']));
+
+  const periods: PvBPeriod[] = ['1Y', '3Y', '5Y', 'Max'];
+
+  const seriesLabels: Record<PvBSeries, string> = {
+    price: it ? 'Prezzo' : 'Stock Price',
+    eps: 'EPS',
+    revPerShare: it ? 'Ricavi/Az.' : 'Revenue/Share',
+    fcfPerShare: 'FCF/Share',
   };
-  const seriesLabels: Record<ChartSeries, string> = {
-    eps: t('fa.hist.eps'),
-    revenue: t('fa.hist.revenue'),
-    fcf: t('fa.hist.fcf'),
-    netIncome: t('fa.hist.netIncome'),
-  };
 
-  const yrs = periodYears[period];
+  // Filter points by period
+  const filteredPoints = useMemo(() => {
+    if (!pvb?.points) return [];
+    if (period === 'Max') return pvb.points;
+    const yearsBack = period === '1Y' ? 1 : period === '3Y' ? 3 : 5;
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - yearsBack);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    // Always include at least 2 points
+    const filtered = pvb.points.filter(p => p.date >= cutoffStr);
+    return filtered.length >= 2 ? filtered : pvb.points.slice(-Math.max(2, yearsBack + 1));
+  }, [pvb?.points, period]);
 
-  const indexed = useMemo(() => {
-    const result: Record<ChartSeries, ReturnType<typeof indexToHundred>> = {} as never;
-    (Object.keys(seriesMap) as ChartSeries[]).forEach(k => {
-      result[k] = indexToHundred(seriesMap[k], yrs);
-    });
-    return result;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, analysis]);
-
-  // Merge all series into a single chart data array
+  // Index all series to 100 at first non-null point per series
   const chartData = useMemo(() => {
-    const allYears = new Set<string>();
-    (Object.keys(seriesMap) as ChartSeries[]).forEach(k => {
-      indexed[k].data.forEach(d => allYears.add(d.year));
-    });
-    return Array.from(allYears).sort().map(year => {
-      const row: Record<string, string | number | null> = { year };
-      (Object.keys(seriesMap) as ChartSeries[]).forEach(k => {
-        const pt = indexed[k].data.find(d => d.year === year);
-        row[k] = pt?.value ?? null;
-      });
-      return row;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [indexed]);
+    const bases: Partial<Record<PvBSeries, number>> = {};
+    for (const pt of filteredPoints) {
+      if (!('price' in bases) && pt.price != null && pt.price > 0) bases.price = pt.price;
+      if (!('eps' in bases) && pt.epsTtm != null && pt.epsTtm > 0) bases.eps = pt.epsTtm;
+      if (!('revPerShare' in bases) && pt.revenuePerShare != null && pt.revenuePerShare > 0) bases.revPerShare = pt.revenuePerShare;
+      if (!('fcfPerShare' in bases) && pt.fcfPerShare != null && Math.abs(pt.fcfPerShare) > 0.1) bases.fcfPerShare = pt.fcfPerShare;
+    }
+    return filteredPoints.map(pt => ({
+      label: pt.label,
+      price: bases.price && pt.price != null ? Math.round((pt.price / bases.price) * 1000) / 10 : null,
+      eps: bases.eps && pt.epsTtm != null && pt.epsTtm > 0 ? Math.round((pt.epsTtm / bases.eps) * 1000) / 10 : null,
+      revPerShare: bases.revPerShare && pt.revenuePerShare != null ? Math.round((pt.revenuePerShare / bases.revPerShare) * 1000) / 10 : null,
+      fcfPerShare: bases.fcfPerShare && pt.fcfPerShare != null ? Math.round((pt.fcfPerShare / bases.fcfPerShare) * 1000) / 10 : null,
+    }));
+  }, [filteredPoints]);
 
-  const toggleSeries = (s: ChartSeries) => {
+  const toggleSeries = (s: PvBSeries) => {
     setActiveSeries(prev => {
       const next = new Set(prev);
-      if (next.has(s) && next.size === 1) return prev; // keep at least one
+      if (next.has(s) && next.size === 1) return prev;
       next.has(s) ? next.delete(s) : next.add(s);
       return next;
     });
   };
 
-  const title = language === 'it' ? 'Il prezzo ha seguito il business?' : 'Has the price followed the business?';
+  const title = it ? 'Il prezzo ha seguito il business?' : 'Has the price followed the business?';
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Header */}
       <div className="px-5 py-3.5 border-b border-border/60 bg-muted/20 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-sm text-foreground">{title}</h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {language === 'it'
-              ? 'Dati indicizzati a 100 all\'inizio del periodo · Fondamentali annuali'
-              : 'Annual fundamentals indexed to 100 at start of period'}
+            {it
+              ? 'Prezzo reale + fondamentali per azione, indicizzati a 100 all\'inizio del periodo'
+              : 'Real price + per-share fundamentals, indexed to 100 at start of period'}
           </p>
         </div>
-        {/* Period selector */}
         <div className="flex items-center gap-1">
           {periods.map(p => (
             <button
@@ -660,7 +727,7 @@ function BusinessPerformanceChart({ analysis, t, language }: {
 
       {/* Series toggles */}
       <div className="px-5 pt-3 flex flex-wrap gap-2">
-        {(Object.keys(seriesMap) as ChartSeries[]).map(s => (
+        {(Object.keys(PVB_COLORS) as PvBSeries[]).map(s => (
           <button
             key={s}
             onClick={() => toggleSeries(s)}
@@ -670,53 +737,46 @@ function BusinessPerformanceChart({ analysis, t, language }: {
                 : 'border-border text-muted-foreground'
             }`}
             style={activeSeries.has(s) ? {
-              backgroundColor: SERIES_COLORS[s] + '18',
-              color: SERIES_COLORS[s],
-              borderColor: SERIES_COLORS[s] + '40',
+              backgroundColor: PVB_COLORS[s] + '18',
+              color: PVB_COLORS[s],
+              borderColor: PVB_COLORS[s] + '40',
             } : undefined}
           >
-            <span
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: activeSeries.has(s) ? SERIES_COLORS[s] : '#d1d5db' }}
-            />
+            <span className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: activeSeries.has(s) ? PVB_COLORS[s] : '#d1d5db' }} />
             {seriesLabels[s]}
           </button>
         ))}
       </div>
 
-      {/* Chart */}
       <div className="px-4 pt-2 pb-4">
         {chartData.length < 2 ? (
           <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
-            <BarChart2 size={20} className="mr-2 opacity-40" />
-            {language === 'it' ? 'Dati storici insufficienti' : 'Insufficient historical data'}
+            {it ? 'Dati insufficienti per il periodo selezionato' : 'Insufficient data for selected period'}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" strokeOpacity={0.5} />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}`} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
               <ReferenceLine y={100} stroke="#9ca3af" strokeDasharray="4 2" strokeWidth={1} />
               <RechartsTooltip
                 contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb' }}
-                formatter={(v: number, name: string) => {
-                  const s = name as ChartSeries;
-                  const series = seriesLabels[s] || name;
-                  return [`${v != null ? v.toFixed(1) : '—'} (base 100)`, series];
-                }}
+                formatter={(v: number, name: string) => [`${v != null ? v.toFixed(1) : '—'} (base 100)`, seriesLabels[name as PvBSeries] || name]}
               />
-              {(Object.keys(seriesMap) as ChartSeries[])
+              {(Object.keys(PVB_COLORS) as PvBSeries[])
                 .filter(s => activeSeries.has(s))
                 .map(s => (
                   <Line
                     key={s}
                     type="monotone"
                     dataKey={s}
-                    stroke={SERIES_COLORS[s]}
-                    dot={{ r: 3, strokeWidth: 0, fill: SERIES_COLORS[s] }}
+                    stroke={PVB_COLORS[s]}
+                    strokeWidth={s === 'price' ? 2.5 : 1.5}
+                    strokeDasharray={s === 'price' ? undefined : '4 2'}
+                    dot={{ r: 3, strokeWidth: 0, fill: PVB_COLORS[s] }}
                     activeDot={{ r: 5 }}
-                    strokeWidth={2}
                     connectNulls={false}
                   />
                 ))}
@@ -725,49 +785,39 @@ function BusinessPerformanceChart({ analysis, t, language }: {
         )}
       </div>
 
-      {/* Summary row */}
-      {chartData.length >= 2 && (
-        <div className="px-5 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/40 pt-3">
-          {(Object.keys(seriesMap) as ChartSeries[])
-            .filter(s => activeSeries.has(s))
-            .map(s => {
-              const { changePct } = indexed[s];
-              return (
-                <div key={s} className="text-xs">
-                  <div className="text-muted-foreground mb-0.5" style={{ color: SERIES_COLORS[s] + 'cc' }}>
-                    {seriesLabels[s]}
-                  </div>
-                  <div className={`font-semibold text-sm ${pctColor(changePct)}`}>
-                    {changePct != null ? fmtPct(changePct) : '—'}
-                  </div>
-                </div>
-              );
-            })}
+      {/* Price change summary */}
+      {pvb && (
+        <div className="px-5 pb-4 grid grid-cols-3 gap-3 border-t border-border/40 pt-3">
+          {[
+            { label: it ? 'Prezzo 1A' : 'Price 1Y', v: pvb.priceChange1y },
+            { label: it ? 'Prezzo 3A' : 'Price 3Y', v: pvb.priceChange3y },
+            { label: it ? 'Prezzo 5A' : 'Price 5Y', v: pvb.priceChange5y },
+          ].map(({ label, v }) => (
+            <div key={label} className="text-xs">
+              <div className="text-muted-foreground mb-0.5">{label}</div>
+              <div className={`font-semibold text-sm ${pctColor(v)}`}>
+                {v != null ? fmtPct(v) : '—'}
+              </div>
+            </div>
+          ))}
         </div>
       )}
-
-      {/* Data note */}
-      <div className="px-5 pb-3 text-[10px] text-muted-foreground/60 border-t border-border/30 pt-2">
-        {language === 'it'
-          ? 'I dati di prezzo storico non sono inclusi nell\'analisi fondamentale. Il grafico mostra la performance dei fondamentali (dati annuali).'
-          : 'Historical price data is not included in the fundamental dataset. This chart shows annual fundamental performance only.'}
-      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VALUATION SNAPSHOT CHART
-// "How expensive vs history?"
+// VALUATION vs HISTORY chart
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ValuationMetric = 'pe' | 'evEbitda' | 'pFcf' | 'evRevenue';
 
-function ValuationSnapshotChart({ analysis, t, language }: {
-  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+function ValuationSnapshotChart({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
 }) {
   const [metric, setMetric] = useState<ValuationMetric>('pe');
   const { valuation } = analysis;
+  const it = language === 'it';
 
   const metrics: { key: ValuationMetric; label: string; m: ValuationMultiple }[] = [
     { key: 'pe', label: 'P/E', m: valuation.pe },
@@ -780,16 +830,12 @@ function ValuationSnapshotChart({ analysis, t, language }: {
   const m = current.m;
 
   const chartData = [
-    { label: language === 'it' ? 'Attuale' : 'Current', value: m.value, fill: '#3b82f6' },
-    { label: language === 'it' ? 'Mediana 5A' : '5Y median', value: m.historicalMedian5y, fill: '#9ca3af' },
-    { label: language === 'it' ? 'Mediana peer' : 'Peer median', value: m.peerMedian, fill: '#e5e7eb' },
+    { label: it ? 'Attuale' : 'Current', value: m.value, fill: '#3b82f6' },
+    { label: it ? 'Mediana 5A' : '5Y Median', value: m.historicalMedian5y, fill: '#9ca3af' },
   ].filter(d => d.value != null && d.value > 0 && d.value < 500);
 
-  const percentile = m.peerPercentile;
-  const vsH = m.vsHistory3y;
-  const vsP = m.vsPeers;
-
-  const title = language === 'it' ? 'Quanto è cara oggi rispetto al passato?' : 'How expensive is it versus history?';
+  const title = it ? 'Quanto è cara rispetto alla propria storia?' : 'How expensive versus own history?';
+  const hasHistory = m.historicalMedian5y != null;
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -797,7 +843,9 @@ function ValuationSnapshotChart({ analysis, t, language }: {
         <div>
           <h3 className="font-semibold text-sm text-foreground">{title}</h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {language === 'it' ? 'Confronto con storia e peer' : 'Current vs history and peer group'}
+            {it
+              ? (hasHistory ? 'Multipli calcolati da prezzi storici e utili annuali' : 'Confronto con mediana peer (dati storici di valutazione limitati)')
+              : (hasHistory ? 'Multiples computed from historical prices and annual EPS' : 'Peer comparison only (historical valuation data limited)')}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -818,11 +866,10 @@ function ValuationSnapshotChart({ analysis, t, language }: {
       </div>
 
       <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {/* Bar chart */}
         <div>
           {chartData.length >= 1 ? (
             <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} layout="horizontal">
+              <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}x`} />
                 <RechartsTooltip
@@ -838,59 +885,51 @@ function ValuationSnapshotChart({ analysis, t, language }: {
             </ResponsiveContainer>
           ) : (
             <div className="h-40 flex items-center justify-center text-sm text-muted-foreground">
-              {language === 'it' ? 'Dati insufficienti' : 'Insufficient data'}
+              {it ? 'Dati storici insufficienti' : 'Insufficient historical data'}
             </div>
           )}
         </div>
 
-        {/* Metrics summary */}
         <div className="flex flex-col gap-3 justify-center">
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-muted/30 rounded-lg p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                {current.label} {language === 'it' ? 'attuale' : 'current'}
+                {current.label} {it ? 'attuale' : 'current'}
               </div>
               <div className="text-xl font-bold">{fmtX(m.value)}</div>
             </div>
             <div className="bg-muted/30 rounded-lg p-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                {language === 'it' ? 'Mediana 5 anni' : '5Y median'}
+                {it ? 'Mediana 5 anni' : '5Y median'}
               </div>
               <div className="text-xl font-bold">{fmtX(m.historicalMedian5y)}</div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                {language === 'it' ? 'Mediana peer' : 'Peer median'}
-              </div>
-              <div className="text-xl font-bold">{fmtX(m.peerMedian)}</div>
-            </div>
-            <div className="bg-muted/30 rounded-lg p-3">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-                {language === 'it' ? 'Percentile' : 'Peer percentile'}
-              </div>
-              <div className="text-xl font-bold">{percentile != null ? `${percentile}°` : '—'}</div>
-            </div>
-          </div>
           <div className="flex gap-3 text-xs">
-            {vsH != null && (
+            {m.vsHistory3y != null && (
               <div>
-                <span className="text-muted-foreground">vs {language === 'it' ? 'storia' : 'history'}: </span>
-                <span className={`font-semibold ${pctColor(vsH, false)}`}>
-                  {vsH > 0 ? '+' : ''}{vsH.toFixed(0)}%
+                <span className="text-muted-foreground">vs {it ? 'storia 3A' : '3Y history'}: </span>
+                <span className={`font-semibold ${pctColor(m.vsHistory3y, false)}`}>
+                  {m.vsHistory3y > 0 ? '+' : ''}{m.vsHistory3y.toFixed(0)}%
                 </span>
               </div>
             )}
-            {vsP != null && (
+            {m.vsPeers != null && (
               <div>
-                <span className="text-muted-foreground">vs {language === 'it' ? 'peer' : 'peers'}: </span>
-                <span className={`font-semibold ${pctColor(vsP, false)}`}>
-                  {vsP > 0 ? '+' : ''}{vsP.toFixed(0)}%
+                <span className="text-muted-foreground">vs {it ? 'peer' : 'peers'}: </span>
+                <span className={`font-semibold ${pctColor(m.vsPeers, false)}`}>
+                  {m.vsPeers > 0 ? '+' : ''}{m.vsPeers.toFixed(0)}%
                 </span>
               </div>
             )}
           </div>
+          {!hasHistory && (
+            <p className="text-[10px] text-muted-foreground/60 bg-muted/30 rounded px-2 py-1">
+              {it
+                ? 'Mediana storica non disponibile: dati di prezzo e utili annuali insufficienti.'
+                : 'Historical median unavailable: requires at least 1 year of price and earnings data.'}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -898,177 +937,169 @@ function ValuationSnapshotChart({ analysis, t, language }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COMPACT AI PANEL
+// NEWS MOMENTUM SECTION
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CompactAIPanel({ analysis, t, language }: {
-  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
+function NewsMomentumSection({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const exp = analysis.explanation;
-  const coverage = analysis.dataCoverage;
-  const tier = coverageTier(coverage.coveragePct);
-  const lowData = tier === 'insufficient' || tier === 'limited';
+  const news = analysis.newsMomentum;
+  const it = language === 'it';
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-border/60 bg-muted/20 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-sm">{t('fa.section.explanation')}</h3>
-          <CoverageBadge tier={tier} pct={coverage.coveragePct} t={t} language={language} />
-        </div>
-        {!lowData && (
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-          >
-            {expanded
-              ? (language === 'it' ? 'Riduci' : 'Collapse')
-              : (language === 'it' ? 'Approfondisci l\'analisi' : 'Expand analysis')}
-            {expanded ? <ChevronUp size={13} /> : <ChevronRight size={13} />}
-          </button>
-        )}
+      <div className="px-5 py-3 border-b border-border/60 bg-muted/20">
+        <h3 className="font-semibold text-sm text-foreground flex items-center gap-2">
+          <Newspaper size={14} className="text-muted-foreground" />
+          {it ? 'News Recenti' : 'News & Momentum'}
+        </h3>
       </div>
 
-      <div className="p-4">
-        {lowData ? (
-          <div className="flex gap-2 text-sm">
-            <AlertTriangle size={16} className="text-orange-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-foreground mb-1">
-                {language === 'it'
-                  ? `Dati insufficienti per un'analisi fondamentale affidabile.`
-                  : `Insufficient data for a reliable fundamental analysis.`}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {language === 'it'
-                  ? `Disponibili ${coverage.coveragePct.toFixed(0)}% delle metriche necessarie. I dati mancanti non vengono trattati come zero.`
-                  : `${coverage.coveragePct.toFixed(0)}% of required metrics available. Missing data is not treated as zero.`}
-              </p>
+      {!news?.available || news.items.length === 0 ? (
+        <div className="p-6 text-center">
+          <Newspaper size={24} className="text-muted-foreground mx-auto mb-2 opacity-30" />
+          <p className="text-sm font-medium text-foreground mb-1">
+            {it ? 'Nessuna news disponibile' : 'News data unavailable'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {it
+              ? 'Non sono state trovate news recenti per questo titolo.'
+              : 'No recent news articles were found for this ticker.'}
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-border/40">
+          {news.items.map((item, i) => (
+            <a
+              key={i}
+              href={item.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors group"
+            >
+              {item.thumbnail && (
+                <img
+                  src={item.thumbnail}
+                  alt=""
+                  className="w-14 h-14 rounded-md object-cover border border-border shrink-0"
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                  {item.title}
+                </p>
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                  <span className="font-medium">{item.publisher}</span>
+                  <span>·</span>
+                  <span>{fmtTimeAgo(item.publishedAt, language)}</span>
+                </div>
+              </div>
+              <ExternalLink size={12} className="text-muted-foreground/40 shrink-0 mt-1 group-hover:text-muted-foreground transition-colors" />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CATALYSTS & RISKS (AI output)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CatalystsRisksSection({ analysis, language }: {
+  analysis: FundamentalAnalysis; language: string;
+}) {
+  const exp = analysis.explanation;
+  const catalysts = exp.catalysts ?? [];
+  const risks = exp.aiRisks ?? [];
+  const it = language === 'it';
+
+  if (!catalysts.length && !risks.length) return null;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Catalysts */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          {it ? '🚀 Catalizzatori' : '🚀 Key Catalysts'}
+        </h3>
+        <div className="space-y-3">
+          {catalysts.map((c, i) => (
+            <div key={i} className="border border-blue-500/20 bg-blue-500/5 rounded-lg p-3">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <span className="text-xs font-semibold text-foreground">{c.title}</span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/15 text-blue-600 dark:text-blue-400 rounded-full shrink-0 border border-blue-500/20 whitespace-nowrap">
+                  {c.timeHorizon}
+                </span>
+              </div>
+              <p className="text-xs text-foreground/80 leading-relaxed">{c.explanation}</p>
+              {c.supportingData && (
+                <div className="text-[10px] font-mono text-muted-foreground mt-1.5 bg-muted/50 px-2 py-1 rounded">
+                  {c.supportingData}
+                </div>
+              )}
             </div>
-          </div>
-        ) : (
-          <>
-            {/* Headline + summary */}
-            <p className="text-sm text-foreground/90 leading-relaxed mb-4">{exp.summary}</p>
+          ))}
+        </div>
+      </div>
 
-            {/* Strengths & Risks side by side */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-2">
-                  {t('fa.explain.strengths')}
-                </div>
-                <ul className="space-y-1.5">
-                  {exp.strengths.slice(0, 3).map((s, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
-                      <CheckCircle2 size={12} className="text-emerald-500 shrink-0 mt-0.5" />
-                      {s}
-                    </li>
-                  ))}
-                </ul>
+      {/* Risks */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          {it ? '⚠️ Rischi Principali' : '⚠️ Key Risks'}
+        </h3>
+        <div className="space-y-3">
+          {risks.map((r, i) => (
+            <div key={i} className={`rounded-lg p-3 border ${severityColor(r.severity)}`}>
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <span className="text-xs font-semibold">{r.title}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 border capitalize ${
+                  r.severity === 'high' ? 'bg-red-500/15 border-red-500/30' :
+                  r.severity === 'medium' ? 'bg-orange-500/15 border-orange-500/30' :
+                  'bg-yellow-500/15 border-yellow-500/30'
+                }`}>
+                  {r.severity}
+                </span>
               </div>
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-orange-500 mb-2">
-                  {t('fa.explain.risks')}
+              <p className="text-xs leading-relaxed opacity-85">{r.explanation}</p>
+              {r.metricToMonitor && (
+                <div className="text-[10px] font-mono opacity-70 mt-1.5 bg-black/5 dark:bg-white/5 px-2 py-1 rounded">
+                  ⚑ {r.metricToMonitor}
                 </div>
-                <ul className="space-y-1.5">
-                  {exp.risks.slice(0, 3).map((r, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
-                      <AlertTriangle size={12} className="text-orange-500 shrink-0 mt-0.5" />
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              )}
             </div>
-
-            {/* Expanded sections */}
-            {expanded && (
-              <div className="mt-4 pt-4 border-t border-border/40 space-y-4">
-                {([
-                  { key: 'growthAnalysis', label: t('fa.explain.growth') },
-                  { key: 'profitabilityAnalysis', label: t('fa.explain.profitability') },
-                  { key: 'cashFlowAnalysis', label: t('fa.explain.cashflow') },
-                  { key: 'balanceSheetAnalysis', label: t('fa.explain.balance') },
-                  { key: 'valuationAnalysis', label: t('fa.explain.valuation') },
-                  { key: 'peerAnalysis', label: t('fa.explain.peers') },
-                ] as const).map(({ key, label }) => (
-                  exp[key as keyof typeof exp] ? (
-                    <div key={key}>
-                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
-                      <p className="text-xs text-foreground/85 leading-relaxed">{exp[key as keyof typeof exp] as string}</p>
-                    </div>
-                  ) : null
-                ))}
-                <div>
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                    {t('fa.explain.conclusion')}
-                  </div>
-                  <p className="text-xs text-foreground/85 leading-relaxed">{exp.conclusion}</p>
-                </div>
-              </div>
-            )}
-
-            <p className="mt-4 text-[10px] text-muted-foreground/60 leading-relaxed border-t border-border/30 pt-3">
-              {exp.disclaimer}
-            </p>
-          </>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Coverage badge
+// SECONDARY TABS (financial details)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CoverageBadge({ tier, pct, t, language }: {
-  tier: ReturnType<typeof coverageTier>; pct: number; t: (k: string) => string; language: string;
-}) {
-  const colors: Record<typeof tier, string> = {
-    full: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20',
-    partial: 'text-yellow-600 bg-yellow-500/10 border-yellow-500/20',
-    limited: 'text-orange-600 bg-orange-500/10 border-orange-500/20',
-    insufficient: 'text-red-600 bg-red-500/10 border-red-500/20',
-  };
-  const labels: Record<typeof tier, string> = {
-    full: language === 'it' ? 'Dati completi' : 'Full data',
-    partial: language === 'it' ? 'Dati parziali' : 'Partial data',
-    limited: language === 'it' ? 'Dati limitati' : 'Limited data',
-    insufficient: language === 'it' ? 'Dati insufficienti' : 'Insufficient data',
-  };
-  return (
-    <span className={`text-[10px] font-medium border rounded-full px-2 py-0.5 ${colors[tier]}`}>
-      {labels[tier]} · {pct.toFixed(0)}%
-    </span>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECONDARY TABS
-// ─────────────────────────────────────────────────────────────────────────────
-
-type TabKey = 'growth' | 'profitability' | 'cashflow' | 'balance' | 'valuation' | 'competitors' | 'risks';
+type TabKey = 'growth' | 'profitability' | 'cashflow' | 'balance' | 'valuation' | 'risks';
 
 function SecondaryTabs({ analysis, t, language }: {
   analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
 }) {
   const [tab, setTab] = useState<TabKey>('growth');
+  const it = language === 'it';
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'growth', label: language === 'it' ? 'Crescita' : 'Growth' },
-    { key: 'profitability', label: language === 'it' ? 'Redditività' : 'Profitability' },
-    { key: 'cashflow', label: language === 'it' ? 'Flussi di cassa' : 'Cash Flow' },
-    { key: 'balance', label: language === 'it' ? 'Bilancio' : 'Balance Sheet' },
-    { key: 'valuation', label: language === 'it' ? 'Valutazione' : 'Valuation' },
-    { key: 'competitors', label: language === 'it' ? 'Competitor' : 'Competitors' },
-    { key: 'risks', label: language === 'it' ? 'Rischi' : 'Risks' },
+    { key: 'growth', label: it ? 'Crescita' : 'Growth' },
+    { key: 'profitability', label: it ? 'Redditività' : 'Profitability' },
+    { key: 'cashflow', label: it ? 'Flussi di cassa' : 'Cash Flow' },
+    { key: 'balance', label: it ? 'Bilancio' : 'Balance Sheet' },
+    { key: 'valuation', label: it ? 'Valutazione' : 'Valuation' },
+    { key: 'risks', label: it ? 'Rischi' : 'Risks' },
   ];
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Tab bar */}
       <div className="flex overflow-x-auto border-b border-border/60 bg-muted/10">
         {tabs.map(({ key, label }) => (
           <button
@@ -1084,15 +1115,12 @@ function SecondaryTabs({ analysis, t, language }: {
           </button>
         ))}
       </div>
-
-      {/* Tab content */}
       <div className="p-5">
         {tab === 'growth' && <GrowthTab analysis={analysis} t={t} />}
         {tab === 'profitability' && <ProfitabilityTab analysis={analysis} t={t} />}
-        {tab === 'cashflow' && <CashFlowTab analysis={analysis} t={t} language={language} />}
-        {tab === 'balance' && <BalanceTab analysis={analysis} t={t} />}
+        {tab === 'cashflow' && <CashFlowTab analysis={analysis} t={t} />}
+        {tab === 'balance' && <BalanceTab analysis={analysis} t={t} language={language} />}
         {tab === 'valuation' && <ValuationTab analysis={analysis} t={t} language={language} />}
-        {tab === 'competitors' && <CompetitorsTab analysis={analysis} t={t} language={language} />}
         {tab === 'risks' && <RisksTab analysis={analysis} t={t} language={language} />}
       </div>
     </div>
@@ -1178,7 +1206,7 @@ function ProfitabilityTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (
 
 // ── Cash flow tab ─────────────────────────────────────────────────────────────
 
-function CashFlowTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
+function CashFlowTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (k: string) => string }) {
   const cf = analysis.cashFlow;
   const eqColor: Record<string, string> = {
     high: 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20',
@@ -1197,17 +1225,17 @@ function CashFlowTab({ analysis, t, language }: { analysis: FundamentalAnalysis;
         </thead>
         <tbody className="divide-y divide-border/40">
           {[
-            { l: t('fa.metric.ocfTtm'), v: fmtMoney(cf.ocfTtm), good: cf.ocfTtm != null && cf.ocfTtm > 0 },
-            { l: t('fa.metric.capex'), v: fmtMoney(cf.capexTtm), good: null },
-            { l: t('fa.metric.fcfTtm'), v: fmtMoney(cf.fcfTtm), good: cf.fcfTtm != null && cf.fcfTtm > 0 },
-            { l: t('fa.metric.fcfPerShare'), v: fmtN(cf.fcfPerShareTtm, 2), good: null },
-            { l: t('fa.metric.fcfMargin'), v: fmtPctRaw(cf.fcfMarginTtm), good: cf.fcfMarginTtm != null && cf.fcfMarginTtm > 0 },
-            { l: t('fa.metric.cashConversion'), v: fmtN(cf.cashConversionRatio, 2), good: cf.cashConversionRatio != null && cf.cashConversionRatio > 1 },
-            { l: t('fa.metric.sbcRev'), v: fmtPctRaw(cf.sbcToRevenueTtm), good: cf.sbcToRevenueTtm != null && cf.sbcToRevenueTtm < 5 },
-          ].map(({ l, v, good }) => (
+            { l: t('fa.metric.ocfTtm'), v: fmtMoney(cf.ocfTtm) },
+            { l: t('fa.metric.capex'), v: fmtMoney(cf.capexTtm) },
+            { l: t('fa.metric.fcfTtm'), v: fmtMoney(cf.fcfTtm) },
+            { l: t('fa.metric.fcfPerShare'), v: fmtN(cf.fcfPerShareTtm, 2) },
+            { l: t('fa.metric.fcfMargin'), v: fmtPctRaw(cf.fcfMarginTtm) },
+            { l: t('fa.metric.cashConversion'), v: fmtN(cf.cashConversionRatio, 2) },
+            { l: t('fa.metric.sbcRev'), v: fmtPctRaw(cf.sbcToRevenueTtm) },
+          ].map(({ l, v }) => (
             <tr key={l} className="hover:bg-muted/20">
               <td className="py-2.5 pr-3 text-xs text-muted-foreground">{l}</td>
-              <td className={`py-2.5 text-xs font-medium ${good == null ? '' : good ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>{v}</td>
+              <td className="py-2.5 text-xs font-medium">{v}</td>
             </tr>
           ))}
         </tbody>
@@ -1222,7 +1250,7 @@ function CashFlowTab({ analysis, t, language }: { analysis: FundamentalAnalysis;
 
 // ── Balance sheet tab ─────────────────────────────────────────────────────────
 
-function BalanceTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (k: string) => string }) {
+function BalanceTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
   const fs = analysis.financialStrength;
   const ce = analysis.capitalEfficiency;
   return (
@@ -1242,7 +1270,7 @@ function BalanceTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (k: str
               { l: t('fa.metric.intCoverage'), v: fmtX(fs.interestCoverage), warn: fs.interestCoverage != null && fs.interestCoverage > 0 && fs.interestCoverage < 2 },
               { l: t('fa.metric.goodwillAssets'), v: fmtPctRaw(fs.goodwillToAssets), warn: fs.goodwillToAssets != null && fs.goodwillToAssets > 40 },
             ].map(({ l, v, warn }) => (
-              <tr key={l} className="hover:bg-muted/20">
+              <tr key={String(l)} className="hover:bg-muted/20">
                 <td className="py-2 pr-3 text-xs text-muted-foreground">{l}</td>
                 <td className={`py-2 text-xs font-medium ${warn ? 'text-orange-600 dark:text-orange-400' : ''}`}>{v}</td>
               </tr>
@@ -1257,10 +1285,10 @@ function BalanceTab({ analysis, t }: { analysis: FundamentalAnalysis; t: (k: str
             {[
               { l: t('fa.metric.roic'), v: fmtPctRaw(ce.roic) },
               { l: t('fa.metric.assetTurnover'), v: fmtX(ce.assetTurnover, 2) },
-              { l: t('fa.metric.dso'), v: ce.dso != null ? `${fmtN(ce.dso, 0)} days` : '—' },
-              { l: t('fa.metric.dio'), v: ce.dio != null ? `${fmtN(ce.dio, 0)} days` : '—' },
-              { l: t('fa.metric.dpo'), v: ce.dpo != null ? `${fmtN(ce.dpo, 0)} days` : '—' },
-              { l: t('fa.metric.ccc'), v: ce.cashConversionCycle != null ? `${fmtN(ce.cashConversionCycle, 0)} days` : '—' },
+              { l: t('fa.metric.dso'), v: ce.dso != null ? `${fmtN(ce.dso, 0)} ${language === 'it' ? 'gg' : 'days'}` : '—' },
+              { l: t('fa.metric.dio'), v: ce.dio != null ? `${fmtN(ce.dio, 0)} ${language === 'it' ? 'gg' : 'days'}` : '—' },
+              { l: t('fa.metric.dpo'), v: ce.dpo != null ? `${fmtN(ce.dpo, 0)} ${language === 'it' ? 'gg' : 'days'}` : '—' },
+              { l: t('fa.metric.ccc'), v: ce.cashConversionCycle != null ? `${fmtN(ce.cashConversionCycle, 0)} ${language === 'it' ? 'gg' : 'days'}` : '—' },
             ].map(({ l, v }) => (
               <tr key={l} className="hover:bg-muted/20">
                 <td className="py-2 pr-3 text-xs text-muted-foreground">{l}</td>
@@ -1335,80 +1363,6 @@ function ValuationTab({ analysis, t, language }: { analysis: FundamentalAnalysis
   );
 }
 
-// ── Competitors tab ───────────────────────────────────────────────────────────
-
-function CompetitorsTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
-  const { peers } = analysis;
-  if (!peers.peers.length) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {language === 'it'
-          ? 'Peer group insufficiente per un confronto affidabile.'
-          : 'Peer group insufficient for a reliable comparison.'}
-      </p>
-    );
-  }
-  const cols: { key: keyof PeerCompanyData; label: string; fmt: (v: number | null | undefined) => string }[] = [
-    { key: 'marketCap', label: t('fa.peers.mktCap'), fmt: fmtMoney },
-    { key: 'revenueGrowthYoy', label: t('fa.peers.revGrowth'), fmt: (v) => fmtPct(v) },
-    { key: 'grossMargin', label: t('fa.peers.grossMargin'), fmt: fmtPctRaw },
-    { key: 'operatingMargin', label: t('fa.peers.opMargin'), fmt: fmtPctRaw },
-    { key: 'roic', label: t('fa.peers.roic'), fmt: fmtPctRaw },
-    { key: 'pe', label: t('fa.peers.pe'), fmt: fmtX },
-    { key: 'evToEbitda', label: t('fa.peers.evEbitda'), fmt: fmtX },
-    { key: 'evToSales', label: t('fa.peers.evSales'), fmt: fmtX },
-  ];
-  const subject: PeerCompanyData = {
-    symbol: analysis.symbol,
-    name: analysis.name,
-    marketCap: analysis.marketCap,
-    revenueGrowthYoy: analysis.growth.revenueYoy.isNm ? null : analysis.growth.revenueYoy.value,
-    grossMargin: analysis.profitability.grossMarginTtm,
-    operatingMargin: analysis.profitability.operatingMarginTtm,
-    fcfMargin: analysis.profitability.fcfMarginTtm,
-    roic: analysis.profitability.roic,
-    netDebtToEbitda: analysis.financialStrength.netDebtToEbitda,
-    pe: analysis.valuation.pe.value,
-    evToEbitda: analysis.valuation.evEbitda.value,
-    evToSales: analysis.valuation.evRevenue.value,
-    priceToFcf: analysis.valuation.pFcf.value,
-  };
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs min-w-[600px]">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/60">
-            <th className="pb-2 pr-3 text-left font-medium">{t('fa.peers.symbol')}</th>
-            {cols.map(c => (
-              <th key={c.key} className="pb-2 pr-3 text-right font-medium">{c.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/40">
-          <tr className="bg-primary/5 border-primary/20 font-medium">
-            <td className="py-2 pr-3 font-mono font-bold text-primary">{analysis.symbol} ★</td>
-            {cols.map(c => (
-              <td key={c.key} className="py-2 pr-3 text-right text-foreground font-semibold">
-                {c.fmt(subject[c.key] as number | null)}
-              </td>
-            ))}
-          </tr>
-          {peers.peers.map(peer => (
-            <tr key={peer.symbol} className="hover:bg-muted/20">
-              <td className="py-2 pr-3 font-mono font-semibold">{peer.symbol}</td>
-              {cols.map(c => (
-                <td key={c.key} className="py-2 pr-3 text-right text-muted-foreground">
-                  {c.fmt(peer[c.key] as number | null)}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // ── Risks tab ─────────────────────────────────────────────────────────────────
 
 function RisksTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t: (k: string) => string; language: string }) {
@@ -1420,7 +1374,7 @@ function RisksTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t:
       {analysis.redFlags.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('fa.section.flags')}</h4>
-          {analysis.redFlags.map(flag => (
+          {analysis.redFlags.map((flag: RedFlag) => (
             <div key={flag.key} className={`rounded-lg border px-3 py-2.5 text-xs ${severityColor(flag.severity)}`}>
               <div className="flex items-center justify-between mb-1 gap-2">
                 <span className="font-semibold">{language === 'it' ? flag.titleIt : flag.titleEn}</span>
@@ -1435,7 +1389,7 @@ function RisksTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t:
       {analysis.strengths.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-2 mt-4">{t('fa.section.strengths')}</h4>
-          {analysis.strengths.map(s => (
+          {analysis.strengths.map((s: FundamentalStrength) => (
             <div key={s.key} className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 text-xs text-emerald-700 dark:text-emerald-400">
               <div className="flex items-center gap-1.5 mb-1">
                 <CheckCircle2 size={12} className="shrink-0" />
@@ -1447,80 +1401,6 @@ function RisksTab({ analysis, t, language }: { analysis: FundamentalAnalysis; t:
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPANY HEADER
-// ─────────────────────────────────────────────────────────────────────────────
-
-function CompanyHeader({ analysis, t, language }: {
-  analysis: FundamentalAnalysis; t: (k: string) => string; language: string;
-}) {
-  return (
-    <div className="bg-card border border-border rounded-xl px-5 py-4 flex flex-wrap items-center gap-4">
-      {analysis.logoUrl && (
-        <img
-          src={analysis.logoUrl}
-          alt={analysis.name}
-          className="w-10 h-10 rounded-lg object-contain border border-border bg-background p-1 shrink-0"
-          onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-        />
-      )}
-
-      {/* Name / sector */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="text-xl font-bold font-mono">{analysis.symbol}</span>
-          <span className="text-sm text-muted-foreground truncate max-w-[280px]">{analysis.name}</span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap mt-0.5">
-          {analysis.sector && (
-            <span className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{analysis.sector}</span>
-          )}
-          {analysis.industry && (
-            <span className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{analysis.industry}</span>
-          )}
-          {analysis.country && (
-            <span className="text-[11px] text-muted-foreground">{analysis.country}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Price + metrics */}
-      <div className="flex items-center gap-5 flex-wrap">
-        <div>
-          <div className="text-lg font-bold font-mono tabular-nums">
-            {analysis.currency} {fmtN(analysis.lastPrice, 2)}
-          </div>
-          <div className="text-[11px] text-muted-foreground">{analysis.exchange}</div>
-        </div>
-        {analysis.marketCap != null && (
-          <div>
-            <div className="text-sm font-semibold tabular-nums">{fmtMoney(analysis.marketCap)}</div>
-            <div className="text-[11px] text-muted-foreground">Market Cap</div>
-          </div>
-        )}
-        {analysis.enterpriseValue != null && (
-          <div>
-            <div className="text-sm font-semibold tabular-nums">{fmtMoney(analysis.enterpriseValue)}</div>
-            <div className="text-[11px] text-muted-foreground">EV</div>
-          </div>
-        )}
-        {analysis.lastFilingDate && (
-          <div>
-            <div className="text-xs font-medium">{analysis.lastFilingDate.slice(0, 10)}</div>
-            <div className="text-[11px] text-muted-foreground">{t('fa.lastFiling')}</div>
-          </div>
-        )}
-        <CoverageBadge
-          tier={coverageTier(analysis.dataCoverage.coveragePct)}
-          pct={analysis.dataCoverage.coveragePct}
-          t={t}
-          language={language}
-        />
-      </div>
     </div>
   );
 }
@@ -1676,57 +1556,62 @@ export default function FundamentalAnalysisPage() {
 
         {/* ── Main content ─────────────────────────────────────────────────── */}
         {analysis && !isAnalyzing && (
-          <div className="space-y-4">
+          <div className="space-y-5">
 
-            {/* 1. Company header */}
-            <CompanyHeader analysis={analysis} t={t} language={language} />
+            {/* 1. Company header with data confidence matrix */}
+            <CompanyHeader analysis={analysis} language={language} />
 
-            {/* 2. Coverage warning (insufficient only) */}
-            {coverageTier(analysis.dataCoverage.coveragePct) === 'insufficient' && (
-              <div className="flex items-start gap-3 rounded-xl border border-orange-500/20 bg-orange-500/5 px-4 py-3 text-sm">
-                <AlertTriangle size={16} className="text-orange-500 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-semibold text-foreground">
-                    {language === 'it'
-                      ? `Dati insufficienti per un'analisi fondamentale affidabile.`
-                      : `Insufficient data for a reliable fundamental analysis.`}
-                  </span>{' '}
-                  <span className="text-muted-foreground text-xs">
-                    {language === 'it'
-                      ? `Disponibili ${analysis.dataCoverage.coveragePct.toFixed(0)}% delle metriche necessarie. Le analisi con classificazioni e score non sono mostrate.`
-                      : `${analysis.dataCoverage.coveragePct.toFixed(0)}% of required metrics available. Scores and classifications are not shown.`}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* 2. "Our Take" AI verdict */}
+            <OurTakeBlock analysis={analysis} language={language} />
 
-            {/* 3. 5 Key signal cards */}
+            {/* 3. 4 Investment snapshot cards */}
             <div>
               <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                {language === 'it' ? 'I 5 indicatori chiave' : '5 Key Fundamental Signals'}
+                {language === 'it' ? 'Indicatori chiave' : 'Key Fundamental Signals'}
               </h2>
-              <KeySignalCards analysis={analysis} t={t} language={language} />
+              <KeySignalCards analysis={analysis} language={language} />
             </div>
 
-            {/* 4. Business Performance chart */}
-            <BusinessPerformanceChart analysis={analysis} t={t} language={language} />
+            {/* 4. Price vs Business chart */}
+            <PriceVsBusinessChart analysis={analysis} language={language} />
 
-            {/* 5. Valuation vs History chart */}
-            <ValuationSnapshotChart analysis={analysis} t={t} language={language} />
+            {/* 5. Valuation vs History */}
+            <ValuationSnapshotChart analysis={analysis} language={language} />
 
-            {/* 6. AI panel (compact) */}
-            <CompactAIPanel analysis={analysis} t={t} language={language} />
+            {/* 6. News Momentum */}
+            <NewsMomentumSection analysis={analysis} language={language} />
 
-            {/* 7. Secondary tabs */}
-            <SecondaryTabs analysis={analysis} t={t} language={language} />
+            {/* 7. Catalysts & Risks */}
+            <div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                {language === 'it' ? 'Catalizzatori & Rischi (AI)' : 'Catalysts & Risks (AI)'}
+              </h2>
+              <CatalystsRisksSection analysis={analysis} language={language} />
+            </div>
 
-            {/* Disclaimer */}
-            <p className="text-[10px] text-muted-foreground/50 leading-relaxed pb-4">
+            {/* 8. Financial detail tabs */}
+            <div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                {language === 'it' ? 'Dettagli finanziari' : 'Financial Details'}
+              </h2>
+              <SecondaryTabs analysis={analysis} t={t} language={language} />
+            </div>
+
+            {/* Methodology + disclaimer */}
+            <div className="bg-muted/30 rounded-lg px-4 py-3 text-[10px] text-muted-foreground/60 leading-relaxed">
+              <span className="font-semibold text-muted-foreground/80 block mb-1">
+                {language === 'it' ? 'Fonti & Metodologia' : 'Sources & Methodology'}
+              </span>
+              {language === 'it'
+                ? 'Dati: Yahoo Finance (quoteSummary, fundamentalsTimeSeries, chart). Fondamentali annuali e trimestrali; TTM calcolato come somma degli ultimi 4 trimestri. P/E storico calcolato da prezzo di fine anno / EPS diluito annuale. Peer data non disponibile tramite Yahoo Finance.'
+                : 'Data: Yahoo Finance (quoteSummary, fundamentalsTimeSeries, chart). Annual and quarterly fundamentals; TTM computed as sum of last 4 quarters. Historical P/E calculated from year-end price ÷ annual diluted EPS. Peer data not available via Yahoo Finance.'}
+              <br /><br />
               {t('fa.disclaimer')}
-            </p>
+            </div>
           </div>
         )}
       </div>
     </Layout>
   );
 }
+

@@ -1,6 +1,6 @@
 /**
  * AI explanation engine for fundamental analysis.
- * Receives pre-computed structured data — never raw text or unstructured numbers.
+ * Produces a concise structured verdict — never raw numbers or verbose sections.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -18,92 +18,123 @@ function getClient(): Anthropic {
   return client;
 }
 
+export interface AICatalyst {
+  title: string;
+  explanation: string;
+  supportingData?: string;
+  timeHorizon: string;
+}
+
+export interface AIRisk {
+  title: string;
+  severity: "high" | "medium" | "low";
+  explanation: string;
+  metricToMonitor: string;
+}
+
 export interface FundamentalExplanation {
-  summary: string;
-  growthAnalysis: string;
-  profitabilityAnalysis: string;
-  cashFlowAnalysis: string;
-  balanceSheetAnalysis: string;
-  valuationAnalysis: string;
-  peerAnalysis: string;
-  strengths: string[];
-  risks: string[];
-  conclusion: string;
+  headline: string;
+  ourTake: string;
+  businessLine: string;
+  valuationLine: string;
+  momentumLine: string;
+  mainRisk: string;
+  catalysts: AICatalyst[];
+  aiRisks: AIRisk[];
+  metricsToWatch: string[];
   disclaimer: string;
 }
 
-const TOOL_NAME = "submit_fundamental_explanation";
+const TOOL_NAME = "submit_fundamental_verdict";
 
 const fundamentalTool: Anthropic.Tool = {
   name: TOOL_NAME,
-  description: "Submit the structured plain-language fundamental analysis explanation.",
+  description: "Submit the concise structured fundamental analysis verdict.",
   input_schema: {
     type: "object",
     required: [
-      "summary",
-      "growthAnalysis",
-      "profitabilityAnalysis",
-      "cashFlowAnalysis",
-      "balanceSheetAnalysis",
-      "valuationAnalysis",
-      "peerAnalysis",
-      "strengths",
-      "risks",
-      "conclusion",
-      "disclaimer",
+      "headline",
+      "ourTake",
+      "businessLine",
+      "valuationLine",
+      "momentumLine",
+      "mainRisk",
+      "catalysts",
+      "aiRisks",
+      "metricsToWatch",
     ],
     properties: {
-      summary: {
+      headline: {
         type: "string",
-        description: "Max 120 words covering: what works, what doesn't, main trends, financial situation, valuation vs peers, main risk.",
+        description:
+          "Maximum 12 words. A neutral, factual headline capturing the single most important data signal. No recommendation language.",
       },
-      growthAnalysis: {
+      ourTake: {
         type: "string",
-        description: "2-3 sentences explaining the growth metrics provided. Highlight trend, quality, and peer comparison.",
+        description:
+          "Maximum 80 words. Balanced educational verdict on the company's current fundamental picture. Reference the most important data points. Use hedged language (suggests, may indicate, the data shows). No buy/sell/hold recommendation. No price prediction.",
       },
-      profitabilityAnalysis: {
+      businessLine: {
         type: "string",
-        description: "2-3 sentences on margins, ROE, ROIC. Note trends and peer comparison.",
+        description:
+          "One sentence (max 20 words) on business trend: revenue momentum, margin trajectory, or earnings quality.",
       },
-      cashFlowAnalysis: {
+      valuationLine: {
         type: "string",
-        description: "2-3 sentences on FCF generation, cash conversion, earnings quality.",
+        description:
+          "One sentence (max 20 words) on current valuation vs history or peers. No recommendation.",
       },
-      balanceSheetAnalysis: {
+      momentumLine: {
         type: "string",
-        description: "2-3 sentences on debt levels, liquidity, financial strength.",
+        description:
+          "One sentence (max 20 words) on current momentum: latest quarter trend, analyst sentiment, or recent news tone.",
       },
-      valuationAnalysis: {
+      mainRisk: {
         type: "string",
-        description: "2-3 sentences on current multiples vs peers and own history. No buy/sell recommendations.",
+        description:
+          "One sentence (max 20 words) on the single most important fundamental risk.",
       },
-      peerAnalysis: {
-        type: "string",
-        description: "2-3 sentences comparing the company to its peer group across the key metrics provided.",
+      catalysts: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["title", "explanation", "timeHorizon"],
+          properties: {
+            title: { type: "string", description: "Max 6 words." },
+            explanation: { type: "string", description: "Max 30 words. Explain the catalyst and the specific metric or trend supporting it." },
+            supportingData: { type: "string", description: "Specific data point from the input (e.g. 'Revenue CAGR 3Y: +18%')." },
+            timeHorizon: { type: "string", description: "One of: 'Short term (< 6 months)', 'Medium term (6–18 months)', 'Long term (> 18 months)'." },
+          },
+        },
+        description: "Exactly 3 distinct catalysts grounded in the provided data. No invented facts.",
       },
-      strengths: {
+      aiRisks: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["title", "severity", "explanation", "metricToMonitor"],
+          properties: {
+            title: { type: "string", description: "Max 6 words." },
+            severity: { type: "string", enum: ["high", "medium", "low"] },
+            explanation: { type: "string", description: "Max 30 words. Explain the risk and why the metric is concerning." },
+            metricToMonitor: { type: "string", description: "The specific metric to track (e.g. 'Free cash flow margin TTM')." },
+          },
+        },
+        description: "Exactly 3 distinct risks grounded in the provided data. Must differ from catalysts.",
+      },
+      metricsToWatch: {
         type: "array",
         items: { type: "string" },
-        description: "Up to 5 concise bullet points on positive fundamental aspects.",
+        description: "Exactly 3 metric names to monitor in the next 1–2 quarters. Short labels (e.g. 'Operating margin', 'FCF conversion', 'Revenue guidance').",
       },
-      risks: {
-        type: "array",
-        items: { type: "string" },
-        description: "Up to 5 concise bullet points on fundamental risks or concerns.",
-      },
-      conclusion: {
-        type: "string",
-        description: "2-3 balanced concluding sentences summarising the overall fundamental picture without investment recommendations.",
-      },
-      disclaimer: { type: "string" },
     },
   },
 };
 
 const DISCLAIMER_EN =
-  "This analysis is for informational and educational purposes only and does not constitute financial, tax, or legal advice. Data may contain errors, delays, or omissions. Fair value estimates depend on the assumptions used and do not represent a certain prediction of the future price.";
+  "For informational and educational purposes only. Not financial advice. Data may contain errors or delays. Past performance is not indicative of future results.";
 const DISCLAIMER_IT =
-  "Questa analisi ha finalità esclusivamente informative ed educative e non costituisce consulenza finanziaria, fiscale o legale. I dati possono contenere errori, ritardi o omissioni. Le stime di fair value dipendono dalle ipotesi utilizzate e non rappresentano una previsione certa del prezzo futuro.";
+  "Solo a scopo informativo ed educativo. Non costituisce consulenza finanziaria. I dati possono contenere errori o ritardi. I rendimenti passati non sono indicativi di quelli futuri.";
 
 export async function generateFundamentalExplanation(
   data: FundamentalData,
@@ -112,16 +143,12 @@ export async function generateFundamentalExplanation(
   const languageName = language === "it" ? "Italian" : "English";
   const disclaimer = language === "it" ? DISCLAIMER_IT : DISCLAIMER_EN;
 
-  // Build a compact but complete JSON payload — the AI only references these numbers
   const payload = {
     company: {
       symbol: data.symbol,
       name: data.name,
       sector: data.sector,
       industry: data.industry,
-      lastPrice: data.lastPrice,
-      marketCap: data.marketCap,
-      enterpriseValue: data.enterpriseValue,
       currency: data.currency,
     },
     scores: {
@@ -130,7 +157,6 @@ export async function generateFundamentalExplanation(
       profitability: data.scores.profitability.score,
       cashFlow: data.scores.cashFlow.score,
       financialStrength: data.scores.financialStrength.score,
-      capitalEfficiency: data.scores.capitalEfficiency.score,
       valuation: data.scores.valuation.score,
     },
     growth: {
@@ -141,37 +167,26 @@ export async function generateFundamentalExplanation(
       revenue3yCagrIsNm: data.growth.revenue3yCagr.isNm,
       epsDilutedTtm: data.growth.epsDilutedTtm,
       epsYoy: data.growth.epsYoy.value,
-      revenueYoyVsPeerMedian: data.growth.revenueYoy.peerMedian,
-      revenueYoyPeerPercentile: data.growth.revenueYoy.peerPercentile,
+      epsYoyIsNm: data.growth.epsYoy.isNm,
+      fcfYoy: data.growth.fcfYoy.value,
     },
     profitability: {
-      grossMarginTtm: data.profitability.grossMarginTtm,
       operatingMarginTtm: data.profitability.operatingMarginTtm,
       operatingMarginTrend: data.profitability.operatingMarginTrend,
-      operatingMarginVsPeers: data.profitability.operatingMarginVsPeers,
       netMarginTtm: data.profitability.netMarginTtm,
       fcfMarginTtm: data.profitability.fcfMarginTtm,
-      roa: data.profitability.roa,
-      roe: data.profitability.roe,
       roic: data.profitability.roic,
       roeWarning: data.profitability.roeWarning,
-      peerOperatingMarginMedian: data.profitability.peerOperatingMarginMedian,
     },
     cashFlow: {
-      ocfTtm: data.cashFlow.ocfTtm,
       fcfTtm: data.cashFlow.fcfTtm,
-      fcfMarginTtm: data.cashFlow.fcfMarginTtm,
       cashConversionRatio: data.cashFlow.cashConversionRatio,
-      sbcToRevenue: data.cashFlow.sbcToRevenueTtm,
       earningsQuality: data.cashFlow.earningsQuality,
       earningsQualitySignals: data.cashFlow.earningsQualitySignals,
     },
     balanceSheet: {
-      cash: data.financialStrength.cash,
-      totalDebt: data.financialStrength.totalDebt,
-      netDebt: data.financialStrength.netDebt,
       isNetCash: data.financialStrength.isNetCash,
-      debtToEquity: data.financialStrength.debtToEquity,
+      netDebt: data.financialStrength.netDebt,
       netDebtToEbitda: data.financialStrength.netDebtToEbitda,
       netDebtToEbitdaIsNm: data.financialStrength.netDebtToEbitdaIsNm,
       currentRatio: data.financialStrength.currentRatio,
@@ -179,55 +194,50 @@ export async function generateFundamentalExplanation(
     },
     valuation: {
       pe: data.valuation.pe.value,
-      peVsPeers: data.valuation.pe.vsPeers,
-      peVsHistory3y: data.valuation.pe.vsHistory3y,
+      peVsHistory5y: data.valuation.pe.historicalMedian5y != null
+        ? { current: data.valuation.pe.value, median5y: data.valuation.pe.historicalMedian5y }
+        : null,
       forwardPe: data.valuation.forwardPe.value,
       evEbitda: data.valuation.evEbitda.value,
-      evEbitdaVsPeers: data.valuation.evEbitda.vsPeers,
-      ps: data.valuation.ps.value,
-      pFcf: data.valuation.pFcf.value,
-      dividendYield: data.valuation.dividendYield,
-      dilution1y: data.valuation.dilution1y,
+      evEbitdaVsHistory5y: data.valuation.evEbitda.historicalMedian5y != null
+        ? { current: data.valuation.evEbitda.value, median5y: data.valuation.evEbitda.historicalMedian5y }
+        : null,
       valuationQuadrant: data.valuation.valuationMatrix.quadrant,
     },
-    peerComparison: {
-      peerCount: data.peers.peerGroupSize,
-      peers: data.peers.peers.slice(0, 5).map((p) => ({
-        symbol: p.symbol,
-        revenueGrowthYoy: p.revenueGrowthYoy,
-        operatingMargin: p.operatingMargin,
-        roic: p.roic,
-        pe: p.pe,
-        evToEbitda: p.evToEbitda,
-      })),
+    priceChange: {
+      oneYear: data.priceVsBusiness.priceChange1y,
+      threeYear: data.priceVsBusiness.priceChange3y,
+      fiveYear: data.priceVsBusiness.priceChange5y,
     },
-    redFlags: data.redFlags.map((f) => ({ key: f.key, severity: f.severity, dataPoint: f.dataPoint })),
-    strengths: data.strengths.map((s) => ({ key: s.key, dataPoint: s.dataPoint })),
-    dataCoverage: {
-      coveragePct: data.dataCoverage.coveragePct,
-      confidenceLevel: data.dataCoverage.confidenceLevel,
-    },
+    redFlags: data.redFlags.map((f) => ({
+      key: f.key,
+      severity: f.severity,
+      dataPoint: f.dataPoint,
+    })),
+    strengths: data.strengths.map((s) => ({
+      key: s.key,
+      dataPoint: s.dataPoint,
+    })),
+    newsAvailable: data.newsMomentum.available,
+    recentNews: data.newsMomentum.items.slice(0, 5).map((n) => n.title),
   };
 
-  const systemPrompt = `You are an educational financial analyst inside the "The Ripple Effect" platform. 
-You must explain exclusively the pre-computed data provided in the input. 
-Never invent data, competitors, forecasts, or motivations not present in the input.
-Distinguish facts, estimates, and interpretations.
-When a data point is null or absent, declare it clearly — do not fill in.
-Do not give personalised investment recommendations.
-Do not predict with certainty the future direction of the price.
-Compare the company with its peer group and with its own history using only the data given.
-Highlight both positive aspects and risks equally.
-Respond entirely in ${languageName}.
-Never use phrases like "it's definitely undervalued", "the price will rise", "it's a buy", "it's a safe stock".
-Use hedged, educational language: "suggests", "may indicate", "the data shows", "compared to peers".`;
+  const systemPrompt = `You are an educational analyst for "The Ripple Effect" platform.
+Your job: produce a concise, structured verdict using ONLY the pre-computed data provided.
+Rules:
+- Never invent data, competitor names, specific numbers not in the input.
+- Use hedged language: "suggests", "may indicate", "the data shows", "historically".
+- No buy/sell/hold recommendation. No price prediction. No absolute certainty.
+- When a value is null, omit it or note it as unavailable. Never fill in invented numbers.
+- Keep all text under the word limits specified in each field.
+- Respond entirely in ${languageName}.`;
 
-  const userPrompt = `Fundamental analysis data for ${data.symbol} (${data.name}):\n${JSON.stringify(payload, null, 2)}`;
+  const userPrompt = `Write the fundamental verdict for ${data.symbol} (${data.name}) using only this data:\n${JSON.stringify(payload, null, 2)}`;
 
   try {
     const message = await getClient().messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 2048,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
       tools: [fundamentalTool],

@@ -1,0 +1,811 @@
+Voglio correggere e riprogettare la pagina Fundamental Analysis esistente.
+
+IMPORTANTE
+
+Non limitarti a modificare colori, spaziatura o testi.
+
+Devi:
+
+1. verificare la correttezza dei dati e delle formule;
+2. correggere la gerarchia delle informazioni;
+3. aggiungere le funzionalità mancanti;
+4. rendere la pagina comprensibile a un investitore retail in meno di 30 secondi;
+5. eliminare informazioni duplicate e sezioni che non producono una conclusione utile.
+
+L’obiettivo della pagina non è mostrare tutti i ratio disponibili.
+
+L’obiettivo è aiutare l’utente a rispondere a quattro domande:
+
+1. Il business dell’azienda sta migliorando o peggiorando?
+2. Il prezzo è cresciuto più o meno degli utili e del free cash flow?
+3. La valutazione attuale è contenuta o elevata rispetto alla storia e ai competitor?
+4. Le notizie recenti stanno migliorando o peggiorando la tesi di investimento?
+
+--------------------------------------------------
+1. AUDIT DELLA VERSIONE ATTUALE
+--------------------------------------------------
+
+Prima di modificare l’interfaccia, analizza il codice e verifica i seguenti problemi presenti nella pagina attuale:
+
+- Il grafico “Has the price followed the business?” non mostra la serie storica del prezzo.
+- “Valuation vs History” mostra un valore corrente ma non la storia del multiplo.
+- P/E storico, mediana a 5 anni e peer median risultano mancanti.
+- La pagina dichiara una copertura dati del 92%, ma mancano dati fondamentali per valutazione, peer comparison e andamento storico.
+- L’analisi AI ripete le metriche senza produrre un verdetto sintetico.
+- I dati dettagliati duplicano ciò che è già mostrato nelle card.
+- Non esiste una sezione news momentum.
+- I confronti con competitor non sono disponibili.
+- Annual data, TTM data e latest quarter potrebbero essere mischiati.
+- Alcuni ratio potrebbero provenire direttamente da Yahoo Finance, mentre altri sono calcolati localmente con formule diverse.
+
+Crea prima un audit che mostri:
+
+- endpoint Yahoo utilizzati;
+- campi disponibili;
+- campi mancanti;
+- formule applicate;
+- periodo di ogni metrica;
+- eventuali incoerenze;
+- dati che non possono essere ottenuti da Yahoo Finance.
+
+Non mostrare un valore se non è possibile determinarne chiaramente formula, periodo e fonte.
+
+--------------------------------------------------
+2. NUOVA GERARCHIA DELLA PAGINA
+--------------------------------------------------
+
+Riorganizza la pagina in questo ordine:
+
+1. Company header
+2. Investment snapshot
+3. Grafico Prezzo vs Business
+4. La nostra lettura
+5. News Momentum
+6. Valutazione
+7. Catalizzatori e rischi
+8. Dettagli finanziari
+9. Fonti e metodologia
+
+Tutta la parte principale deve essere comprensibile nella prima schermata desktop o con uno scroll minimo.
+
+Elimina la lunga successione di card e tabelle come elemento principale.
+
+I dettagli numerici devono rimanere disponibili, ma in secondo piano.
+
+--------------------------------------------------
+3. COMPANY HEADER
+--------------------------------------------------
+
+Mostrare in una singola riga compatta:
+
+- ticker;
+- nome azienda;
+- settore;
+- industria;
+- prezzo corrente;
+- variazione 1 giorno;
+- variazione 1 anno;
+- market cap;
+- data degli ultimi risultati;
+- data di aggiornamento.
+
+Non mostrare informazioni duplicate.
+
+Sostituire “Full data: 92%” con:
+
+“Data confidence: High / Medium / Low”
+
+Il confidence level deve considerare separatamente:
+
+- financial statements;
+- historical prices;
+- historical valuation;
+- peer data;
+- news data.
+
+Esempio:
+
+Financial data: High
+Historical valuation: Low
+Peer data: Unavailable
+News data: Medium
+
+--------------------------------------------------
+4. INVESTMENT SNAPSHOT
+--------------------------------------------------
+
+Sostituire le cinque card attuali con quattro card principali più grandi e più comprensibili.
+
+CARD 1 — BUSINESS TREND
+
+Domanda:
+“Il business sta migliorando?”
+
+Mostrare soltanto:
+
+- Revenue growth TTM;
+- EPS growth TTM;
+- FCF growth TTM;
+- operating margin trend.
+
+Verdetti possibili:
+
+- Strong improvement
+- Improving
+- Stable
+- Deteriorating
+- Strong deterioration
+- Insufficient data
+
+Aggiungere una spiegazione di massimo 20 parole.
+
+Esempio:
+
+“Ricavi, utili e cash flow crescono, con margini operativi in espansione.”
+
+CARD 2 — PRICE VS BUSINESS
+
+Domanda:
+“Il prezzo ha seguito gli utili?”
+
+Mostrare per il periodo selezionato:
+
+- Price change;
+- EPS per share change;
+- FCF per share change;
+- Price–EPS divergence.
+
+Esempio:
+
+Price: +210%
+EPS: +570%
+FCF/share: +430%
+
+Conclusione:
+
+“Gli utili sono cresciuti più del prezzo.”
+
+Non mostrare questa card finché non sono disponibili veri dati storici del prezzo.
+
+CARD 3 — VALUATION
+
+Domanda:
+“Quanto è cara oggi?”
+
+Mostrare:
+
+- multiplo primario corrente;
+- mediana storica;
+- mediana peer;
+- premio o sconto.
+
+Scegliere automaticamente il multiplo principale:
+
+- P/E per aziende profittevoli;
+- Price/FCF se il cash flow è significativo;
+- EV/EBITDA quando appropriato;
+- EV/Sales per aziende non profittevoli.
+
+Verdetti:
+
+- Significantly discounted
+- Discounted
+- Fair
+- Expensive
+- Very expensive
+- Inconclusive
+
+Esempio:
+
+“Più economica della propria storia, ma ancora a premio sui competitor.”
+
+CARD 4 — CURRENT MOMENTUM
+
+Domanda:
+“Che cosa sta cambiando adesso?”
+
+Mostrare:
+
+- News momentum;
+- earnings revisions, se disponibili;
+- ultimo earnings surprise;
+- principale catalizzatore;
+- principale rischio.
+
+Verdetti:
+
+- Strongly improving
+- Improving
+- Neutral
+- Deteriorating
+- Strongly deteriorating
+
+Se non sono disponibili news, mostrare chiaramente:
+
+“News data unavailable”
+
+Non sostituire la mancanza di news con un giudizio neutrale.
+
+--------------------------------------------------
+5. VERDETTO PRINCIPALE
+--------------------------------------------------
+
+Aggiungere sopra o immediatamente sotto le quattro card un blocco chiamato:
+
+“Our Take” / “La nostra lettura”
+
+Deve contenere:
+
+- una headline;
+- un verdetto sintetico;
+- massimo 80 parole;
+- una frase su business;
+- una frase su valutazione;
+- una frase su momentum;
+- una frase sul rischio principale.
+
+Esempio:
+
+“Business eccezionale, valutazione esigente”
+
+“NVIDIA continua a mostrare una crescita e una redditività molto superiori alla media. Gli utili sono cresciuti più rapidamente del prezzo, ma il titolo continua a incorporare aspettative elevate. Il momentum operativo rimane positivo, mentre il rischio principale è una normalizzazione della domanda AI o una crescita inferiore alle attese.”
+
+Non ripetere tutte le metriche.
+
+Non usare termini come “buy”, “sell” o “strong buy”.
+
+--------------------------------------------------
+6. GRAFICO PREZZO VS BUSINESS
+--------------------------------------------------
+
+Correggere completamente il grafico esistente.
+
+Il grafico deve includere obbligatoriamente:
+
+- adjusted share price;
+- EPS diluted TTM;
+- revenue per share TTM;
+- free cash flow per share TTM.
+
+Di default mostrare:
+
+- Price;
+- EPS diluted TTM.
+
+Tutte le serie devono essere indicizzate a 100 all’inizio del periodo.
+
+Periodi:
+
+- 1Y;
+- 3Y;
+- 5Y;
+- 10Y;
+- Max.
+
+Il grafico deve usare dati almeno trimestrali.
+
+Per ogni trimestre:
+
+- utilizzare il prezzo adjusted alla fine del trimestre;
+- calcolare EPS TTM con gli ultimi quattro trimestri;
+- calcolare revenue per share TTM;
+- calcolare FCF per share TTM;
+- usare diluted shares coerenti con il periodo;
+- correggere per stock split.
+
+Non mostrare un grafico annuale con soli quattro punti se sono disponibili dati trimestrali.
+
+Sotto il grafico mostrare:
+
+Price change: X%
+EPS change: Y%
+FCF/share change: Z%
+Price–EPS divergence: A punti percentuali
+
+Aggiungere una conclusione di una sola frase.
+
+Esempio:
+
+“Dal 2023 gli EPS sono cresciuti molto più del prezzo, determinando una compressione del multiplo.”
+
+Se Yahoo non fornisce i dati necessari, non simulare questa analisi.
+
+Mostrare:
+
+“Historical price and quarterly fundamental data are required.”
+
+--------------------------------------------------
+7. VALUTAZIONE NEL TEMPO
+--------------------------------------------------
+
+La sezione attuale “How expensive is it versus history?” non deve mostrare una grande area vuota.
+
+Se i dati storici del multiplo sono disponibili, mostrare un grafico compatto.
+
+Metriche selezionabili:
+
+- P/E;
+- EV/EBITDA;
+- Price/FCF;
+- EV/Sales.
+
+Mostrare:
+
+- current;
+- 5Y median;
+- 25th percentile;
+- 75th percentile;
+- peer median;
+- current historical percentile.
+
+Aggiungere una fascia visiva che distingua:
+
+- below historical range;
+- lower half;
+- around median;
+- upper half;
+- above historical range.
+
+Se il dato non è disponibile, sostituire tutta la sezione con una card compatta:
+
+“Historical valuation unavailable”
+
+e indicare il motivo:
+
+- provider does not supply historical ratios;
+- insufficient earnings history;
+- negative earnings;
+- missing enterprise value history.
+
+Non lasciare grandi spazi vuoti.
+
+--------------------------------------------------
+8. NEWS MOMENTUM
+--------------------------------------------------
+
+Aggiungere una nuova sezione chiamata:
+
+“News Momentum”
+
+Recuperare news specifiche per ticker.
+
+Periodi:
+
+- 7 giorni;
+- 30 giorni;
+- 90 giorni.
+
+Per ogni news o evento calcolare:
+
+- relevance;
+- direction;
+- expected business impact;
+- time horizon;
+- source reliability;
+- confidence.
+
+Raggruppare articoli che parlano dello stesso evento.
+
+Un evento deve essere contato una sola volta.
+
+Classificare gli eventi:
+
+- earnings;
+- guidance;
+- product;
+- demand;
+- supply;
+- regulation;
+- litigation;
+- management;
+- competition;
+- customer;
+- financing;
+- analyst revisions;
+- macro;
+- rumor.
+
+Mostrare:
+
+- overall momentum score;
+- direction versus previous 30 days;
+- number of material events;
+- top 3 positive events;
+- top 3 negative events;
+- affected metrics.
+
+Esempio:
+
+Positive:
+“Major cloud providers increased AI infrastructure spending.”
+
+Affected metrics:
+Revenue, data-center demand, operating leverage.
+
+Negative:
+“Export restrictions could limit sales in selected markets.”
+
+Affected metrics:
+Revenue growth, geographic exposure.
+
+Ogni evento deve avere:
+
+- data;
+- titolo;
+- breve spiegazione;
+- fonte;
+- link alla notizia.
+
+Non mostrare una conclusione sulle news se sono disponibili meno di tre eventi rilevanti.
+
+--------------------------------------------------
+9. CATALIZZATORI E RISCHI
+--------------------------------------------------
+
+Unificare i blocchi duplicati “Strengths”, “Risks” e la tab Risks.
+
+Creare una sola sezione con due colonne:
+
+CATALYSTS
+
+Massimo quattro elementi:
+
+- titolo;
+- spiegazione;
+- dato o evento di supporto;
+- orizzonte temporale.
+
+RISKS
+
+Massimo quattro elementi:
+
+- titolo;
+- gravità;
+- spiegazione;
+- dato o evento di supporto;
+- metrica da monitorare.
+
+Non includere affermazioni non supportate dai dati disponibili.
+
+Per esempio, non affermare “customer concentration” se non è disponibile un dato o un filing che lo dimostri.
+
+--------------------------------------------------
+10. DETTAGLI FINANZIARI
+--------------------------------------------------
+
+Spostare tutte le tabelle dettagliate in una sezione secondaria.
+
+Usare tab:
+
+- Growth;
+- Profitability;
+- Cash Flow;
+- Balance Sheet;
+- Valuation;
+- Competitors.
+
+Ogni tab deve mostrare massimo 6–8 metriche prioritarie.
+
+Aggiungere un pulsante:
+
+“Show all metrics”
+
+Non mostrare colonne completamente vuote.
+
+Se Peer Median e Peer Percentile non sono disponibili, rimuovere le colonne anziché riempirle di trattini.
+
+Per ogni metrica mostrare:
+
+- valore corrente;
+- periodo;
+- trend;
+- confronto storico, se disponibile;
+- confronto peer, se disponibile;
+- tooltip.
+
+Evitare tabelle larghe con molte colonne vuote.
+
+--------------------------------------------------
+11. CONTROLLO DELLE FORMULE
+--------------------------------------------------
+
+Verificare e rendere esplicite le formule.
+
+Operating Margin =
+Operating Income TTM / Revenue TTM
+
+Net Margin =
+Net Income TTM / Revenue TTM
+
+FCF =
+Operating Cash Flow TTM - Capital Expenditure TTM
+
+FCF Margin =
+FCF TTM / Revenue TTM
+
+ROIC =
+NOPAT / Average Invested Capital
+
+NOPAT =
+Operating Income TTM × (1 - normalized tax rate)
+
+Invested Capital =
+Equity + Interest-Bearing Debt - Cash
+
+ROE =
+Net Income TTM / Average Equity
+
+ROA =
+Net Income TTM / Average Total Assets
+
+P/E =
+Current Adjusted Price / Diluted EPS TTM
+
+Price/FCF =
+Market Cap / FCF TTM
+
+EV/EBITDA =
+Enterprise Value / EBITDA TTM
+
+Per ogni ratio:
+
+- non mescolare numeratore TTM con denominatore annuale;
+- usare average balance-sheet values per ROE, ROA e ROIC;
+- distinguere reported values da calculated values;
+- mostrare N/M quando il denominatore è negativo o vicino a zero;
+- non mostrare percentuali di crescita ingannevoli quando il valore iniziale è negativo;
+- non trattare dati mancanti come zero.
+
+Aggiungere test automatici per tutte le formule.
+
+--------------------------------------------------
+12. CONTROLLO SPECIFICO DEI DATI NVIDIA
+--------------------------------------------------
+
+Usare NVIDIA come caso di test.
+
+Verificare in particolare:
+
+- revenue TTM;
+- EPS diluted TTM;
+- operating income TTM;
+- operating margin;
+- net margin;
+- FCF margin;
+- ROIC;
+- ROE;
+- ROA;
+- current P/E;
+- forward P/E;
+- EV/EBITDA;
+- Price/FCF;
+- revenue growth YoY;
+- EPS growth YoY;
+- 3Y CAGR.
+
+Per ogni valore mostrare nel log di sviluppo:
+
+- raw Yahoo fields;
+- formula;
+- periods used;
+- final calculated value.
+
+Se un valore sembra eccezionalmente alto, non correggerlo arbitrariamente, ma verificarne origine e periodo.
+
+--------------------------------------------------
+13. LOOK AND FEEL
+--------------------------------------------------
+
+Mantenere il visual style generale:
+
+- sfondo chiaro;
+- bordi sottili;
+- angoli arrotondati;
+- palette elegante;
+- font attuale.
+
+Migliorare:
+
+- gerarchia tipografica;
+- dimensione dei numeri;
+- contrasto;
+- densità;
+- allineamento;
+- spaziatura;
+- visualizzazione mobile.
+
+Ridurre l’uso del verde.
+
+Il verde deve identificare un segnale positivo, non ogni numero in crescita.
+
+Usare:
+
+- testo scuro per i valori normali;
+- verde solo per segnali favorevoli;
+- rosso o arancione per rischi;
+- blu o viola per serie informative;
+- grigio per dati mancanti.
+
+Non usare intere card verdi o rosse, salvo piccoli badge.
+
+Ridurre l’altezza delle sezioni.
+
+La pagina desktop dovrebbe avere una larghezza massima coerente e un layout più compatto.
+
+--------------------------------------------------
+14. DESIGN DELLE CARD
+--------------------------------------------------
+
+Ogni card principale deve avere:
+
+- domanda in piccolo;
+- verdetto grande;
+- massimo tre metriche;
+- una spiegazione;
+- un indicatore di confidence;
+- un link “Why?” o “Details”.
+
+Esempio:
+
+PRICE VS BUSINESS
+
+“Earnings outpaced price”
+
+Price 3Y: +185%
+EPS 3Y: +420%
+Divergence: -235 pp
+
+“Gli utili sono cresciuti più rapidamente del prezzo.”
+
+Non inserire cinque righe di ratio in una card.
+
+--------------------------------------------------
+15. ANALISI AI
+--------------------------------------------------
+
+L’AI non deve ricevere raw Yahoo data.
+
+Deve ricevere un JSON già validato e calcolato:
+
+{
+  "company": {},
+  "businessTrend": {},
+  "priceVsBusiness": {},
+  "valuation": {},
+  "financialStrength": {},
+  "newsMomentum": {},
+  "catalysts": [],
+  "risks": [],
+  "dataConfidence": {},
+  "sources": []
+}
+
+L’AI deve:
+
+- interpretare;
+- sintetizzare;
+- confrontare;
+- indicare incertezza.
+
+Non deve:
+
+- calcolare ratio;
+- inventare competitor;
+- inventare cause;
+- inventare rischi qualitativi;
+- fornire target price;
+- fornire raccomandazioni buy/sell.
+
+Output massimo:
+
+- headline: 12 parole;
+- summary: 80 parole;
+- 3 catalysts;
+- 3 risks;
+- 3 metrics to monitor.
+
+--------------------------------------------------
+16. PERFORMANCE
+--------------------------------------------------
+
+Caricare la pagina in più fasi:
+
+FASE 1
+
+- company header;
+- prezzo;
+- snapshot;
+- dati fondamentali principali.
+
+FASE 2
+
+- chart price vs business;
+- valuation history.
+
+FASE 3
+
+- news;
+- AI summary;
+- details.
+
+Mostrare skeleton loader soltanto nelle sezioni in caricamento.
+
+Caching:
+
+- company profile: 7 giorni;
+- financial statements: 24 ore;
+- price history: 24 ore;
+- current price: 5 minuti;
+- news: 30 minuti;
+- AI analysis: fino a cambiamento del relativo input hash.
+
+Le API non devono essere richiamate quando l’utente passa da una tab all’altra.
+
+--------------------------------------------------
+17. GESTIONE DEI LIMITI DI YAHOO FINANCE
+--------------------------------------------------
+
+Non tentare di riempire i dati mancanti inventandoli.
+
+Creare una matrice di disponibilità:
+
+- current fundamentals;
+- historical fundamentals;
+- current valuation;
+- historical valuation;
+- prices;
+- news;
+- analyst estimates;
+- peer data.
+
+Se Yahoo Finance non fornisce dati sufficienti per:
+
+- valuation history;
+- peer medians;
+- news momentum;
+- estimates;
+
+creare un provider interface che permetta di aggiungere successivamente un provider diverso.
+
+Esempio:
+
+interface MarketDataProvider {
+  getCompanyProfile(symbol)
+  getCurrentPrice(symbol)
+  getHistoricalPrices(symbol)
+  getFinancialStatements(symbol)
+  getKeyMetrics(symbol)
+  getHistoricalMetrics(symbol)
+  getPeers(symbol)
+  getNews(symbol)
+  getAnalystEstimates(symbol)
+}
+
+L’interfaccia deve continuare a funzionare anche quando alcuni provider non sono configurati.
+
+--------------------------------------------------
+18. CRITERI DI COMPLETAMENTO
+--------------------------------------------------
+
+La modifica è completata soltanto quando:
+
+- il grafico Price vs Business contiene realmente il prezzo;
+- è possibile confrontare prezzo ed EPS su almeno 3 anni;
+- la pagina non mostra sezioni grandi e vuote;
+- l’AI summary è inferiore a 80 parole;
+- strengths e risks non sono duplicati;
+- la sezione news momentum è presente oppure esplicitamente non disponibile;
+- tutti i ratio mostrano periodo e metodologia;
+- i dettagli non dominano la pagina;
+- il layout mobile è leggibile;
+- nessun dato mancante viene mostrato come zero;
+- nessuna percentuale di crescita viene calcolata da basi negative senza warning.
+
+Prima di implementare il redesign:
+
+1. mostrami l’audit dei dati attuali;
+2. indicami cosa Yahoo può e non può fornire;
+3. elenca i componenti da modificare;
+4. proponi la nuova struttura dei componenti;
+5. implementa prima lo snapshot e Price vs Business;
+6. verifica il risultato con NVIDIA, Apple e una società non profittevole.

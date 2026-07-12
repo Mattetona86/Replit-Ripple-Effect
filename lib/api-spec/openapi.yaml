@@ -895,36 +895,145 @@ components:
         explanationIt:
           type: string
 
+    AICatalyst:
+      type: object
+      required: [title, explanation, timeHorizon]
+      properties:
+        title:
+          type: string
+        explanation:
+          type: string
+        supportingData:
+          type: string
+        timeHorizon:
+          type: string
+
+    AIRisk:
+      type: object
+      required: [title, severity, explanation, metricToMonitor]
+      properties:
+        title:
+          type: string
+        severity:
+          type: string
+          enum: [high, medium, low]
+        explanation:
+          type: string
+        metricToMonitor:
+          type: string
+
     FundamentalExplanation:
       type: object
-      required: [summary, growthAnalysis, profitabilityAnalysis, cashFlowAnalysis, balanceSheetAnalysis, valuationAnalysis, peerAnalysis, strengths, risks, conclusion, disclaimer]
+      required: [headline, ourTake, businessLine, valuationLine, momentumLine, mainRisk, catalysts, aiRisks, metricsToWatch, disclaimer]
       properties:
-        summary:
+        headline:
           type: string
-        growthAnalysis:
+        ourTake:
           type: string
-        profitabilityAnalysis:
+        businessLine:
           type: string
-        cashFlowAnalysis:
+        valuationLine:
           type: string
-        balanceSheetAnalysis:
+        momentumLine:
           type: string
-        valuationAnalysis:
+        mainRisk:
           type: string
-        peerAnalysis:
-          type: string
-        strengths:
+        catalysts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AICatalyst"
+        aiRisks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AIRisk"
+        metricsToWatch:
           type: array
           items:
             type: string
-        risks:
-          type: array
-          items:
-            type: string
-        conclusion:
-          type: string
         disclaimer:
           type: string
+
+    PriceVsBusinessPoint:
+      type: object
+      required: [date, label]
+      properties:
+        date:
+          type: string
+        label:
+          type: string
+        price:
+          type: ["number", "null"]
+        epsTtm:
+          type: ["number", "null"]
+        revenuePerShare:
+          type: ["number", "null"]
+        fcfPerShare:
+          type: ["number", "null"]
+
+    PriceVsBusinessSection:
+      type: object
+      required: [available, points]
+      properties:
+        available:
+          type: boolean
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceVsBusinessPoint"
+        priceChange1y:
+          type: ["number", "null"]
+        priceChange3y:
+          type: ["number", "null"]
+        priceChange5y:
+          type: ["number", "null"]
+
+    NewsItem:
+      type: object
+      required: [title, publisher, link, publishedAt]
+      properties:
+        uuid:
+          type: string
+        title:
+          type: string
+        publisher:
+          type: string
+        link:
+          type: string
+        publishedAt:
+          type: string
+        thumbnail:
+          type: ["string", "null"]
+
+    NewsMomentumSection:
+      type: object
+      required: [available, items]
+      properties:
+        available:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsItem"
+
+    DataConfidenceMatrix:
+      type: object
+      required: [financialStatements, historicalPrices, historicalValuation, peerData, newsData]
+      properties:
+        financialStatements:
+          type: string
+          enum: [high, medium, low]
+        historicalPrices:
+          type: string
+          enum: [high, medium, low, unavailable]
+        historicalValuation:
+          type: string
+          enum: [high, medium, low, unavailable]
+        peerData:
+          type: string
+          enum: [high, medium, low, unavailable]
+        newsData:
+          type: string
+          enum: [high, medium, low, unavailable]
 
     DataCoverage:
       type: object
@@ -1006,6 +1115,12 @@ components:
           $ref: "#/components/schemas/FundamentalExplanation"
         dataCoverage:
           $ref: "#/components/schemas/DataCoverage"
+        priceVsBusiness:
+          $ref: "#/components/schemas/PriceVsBusinessSection"
+        newsMomentum:
+          $ref: "#/components/schemas/NewsMomentumSection"
+        dataConfidenceMatrix:
+          $ref: "#/components/schemas/DataConfidenceMatrix"
 
     SaveAnalysisRequest:
       type: object

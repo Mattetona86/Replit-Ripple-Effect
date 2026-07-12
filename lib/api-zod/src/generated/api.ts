@@ -434,16 +434,25 @@ export const GetFundamentalAnalysisResponse = zod.object({
 }))
 }),
   "explanation": zod.object({
-  "summary": zod.string(),
-  "growthAnalysis": zod.string(),
-  "profitabilityAnalysis": zod.string(),
-  "cashFlowAnalysis": zod.string(),
-  "balanceSheetAnalysis": zod.string(),
-  "valuationAnalysis": zod.string(),
-  "peerAnalysis": zod.string(),
-  "strengths": zod.array(zod.string()),
-  "risks": zod.array(zod.string()),
-  "conclusion": zod.string(),
+  "headline": zod.string(),
+  "ourTake": zod.string(),
+  "businessLine": zod.string(),
+  "valuationLine": zod.string(),
+  "momentumLine": zod.string(),
+  "mainRisk": zod.string(),
+  "catalysts": zod.array(zod.object({
+  "title": zod.string(),
+  "explanation": zod.string(),
+  "supportingData": zod.string().optional(),
+  "timeHorizon": zod.string()
+})),
+  "aiRisks": zod.array(zod.object({
+  "title": zod.string(),
+  "severity": zod.enum(['high', 'medium', 'low']),
+  "explanation": zod.string(),
+  "metricToMonitor": zod.string()
+})),
+  "metricsToWatch": zod.array(zod.string()),
   "disclaimer": zod.string()
 }),
   "dataCoverage": zod.object({
@@ -452,7 +461,39 @@ export const GetFundamentalAnalysisResponse = zod.object({
   "metricsAvailable": zod.number(),
   "metricsTotal": zod.number(),
   "missingAreas": zod.array(zod.string())
-})
+}),
+  "priceVsBusiness": zod.object({
+  "available": zod.boolean(),
+  "points": zod.array(zod.object({
+  "date": zod.string(),
+  "label": zod.string(),
+  "price": zod.number().nullish(),
+  "epsTtm": zod.number().nullish(),
+  "revenuePerShare": zod.number().nullish(),
+  "fcfPerShare": zod.number().nullish()
+})),
+  "priceChange1y": zod.number().nullish(),
+  "priceChange3y": zod.number().nullish(),
+  "priceChange5y": zod.number().nullish()
+}).optional(),
+  "newsMomentum": zod.object({
+  "available": zod.boolean(),
+  "items": zod.array(zod.object({
+  "uuid": zod.string().optional(),
+  "title": zod.string(),
+  "publisher": zod.string(),
+  "link": zod.string(),
+  "publishedAt": zod.string(),
+  "thumbnail": zod.string().nullish()
+}))
+}).optional(),
+  "dataConfidenceMatrix": zod.object({
+  "financialStatements": zod.enum(['high', 'medium', 'low']),
+  "historicalPrices": zod.enum(['high', 'medium', 'low', 'unavailable']),
+  "historicalValuation": zod.enum(['high', 'medium', 'low', 'unavailable']),
+  "peerData": zod.enum(['high', 'medium', 'low', 'unavailable']),
+  "newsData": zod.enum(['high', 'medium', 'low', 'unavailable'])
+}).optional()
 })
 
 

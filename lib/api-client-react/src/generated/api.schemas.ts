@@ -529,18 +529,136 @@ export interface FundamentalStrength {
   explanationIt: string;
 }
 
+export interface AICatalyst {
+  title: string;
+  explanation: string;
+  supportingData?: string;
+  timeHorizon: string;
+}
+
+export type AIRiskSeverity = typeof AIRiskSeverity[keyof typeof AIRiskSeverity];
+
+
+export const AIRiskSeverity = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+} as const;
+
+export interface AIRisk {
+  title: string;
+  severity: AIRiskSeverity;
+  explanation: string;
+  metricToMonitor: string;
+}
+
 export interface FundamentalExplanation {
-  summary: string;
-  growthAnalysis: string;
-  profitabilityAnalysis: string;
-  cashFlowAnalysis: string;
-  balanceSheetAnalysis: string;
-  valuationAnalysis: string;
-  peerAnalysis: string;
-  strengths: string[];
-  risks: string[];
-  conclusion: string;
+  headline: string;
+  ourTake: string;
+  businessLine: string;
+  valuationLine: string;
+  momentumLine: string;
+  mainRisk: string;
+  catalysts: AICatalyst[];
+  aiRisks: AIRisk[];
+  metricsToWatch: string[];
   disclaimer: string;
+}
+
+export interface PriceVsBusinessPoint {
+  date: string;
+  label: string;
+  /** @nullable */
+  price?: number | null;
+  /** @nullable */
+  epsTtm?: number | null;
+  /** @nullable */
+  revenuePerShare?: number | null;
+  /** @nullable */
+  fcfPerShare?: number | null;
+}
+
+export interface PriceVsBusinessSection {
+  available: boolean;
+  points: PriceVsBusinessPoint[];
+  /** @nullable */
+  priceChange1y?: number | null;
+  /** @nullable */
+  priceChange3y?: number | null;
+  /** @nullable */
+  priceChange5y?: number | null;
+}
+
+export interface NewsItem {
+  uuid?: string;
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: string;
+  /** @nullable */
+  thumbnail?: string | null;
+}
+
+export interface NewsMomentumSection {
+  available: boolean;
+  items: NewsItem[];
+}
+
+export type DataConfidenceMatrixFinancialStatements = typeof DataConfidenceMatrixFinancialStatements[keyof typeof DataConfidenceMatrixFinancialStatements];
+
+
+export const DataConfidenceMatrixFinancialStatements = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+} as const;
+
+export type DataConfidenceMatrixHistoricalPrices = typeof DataConfidenceMatrixHistoricalPrices[keyof typeof DataConfidenceMatrixHistoricalPrices];
+
+
+export const DataConfidenceMatrixHistoricalPrices = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  unavailable: 'unavailable',
+} as const;
+
+export type DataConfidenceMatrixHistoricalValuation = typeof DataConfidenceMatrixHistoricalValuation[keyof typeof DataConfidenceMatrixHistoricalValuation];
+
+
+export const DataConfidenceMatrixHistoricalValuation = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  unavailable: 'unavailable',
+} as const;
+
+export type DataConfidenceMatrixPeerData = typeof DataConfidenceMatrixPeerData[keyof typeof DataConfidenceMatrixPeerData];
+
+
+export const DataConfidenceMatrixPeerData = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  unavailable: 'unavailable',
+} as const;
+
+export type DataConfidenceMatrixNewsData = typeof DataConfidenceMatrixNewsData[keyof typeof DataConfidenceMatrixNewsData];
+
+
+export const DataConfidenceMatrixNewsData = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  unavailable: 'unavailable',
+} as const;
+
+export interface DataConfidenceMatrix {
+  financialStatements: DataConfidenceMatrixFinancialStatements;
+  historicalPrices: DataConfidenceMatrixHistoricalPrices;
+  historicalValuation: DataConfidenceMatrixHistoricalValuation;
+  peerData: DataConfidenceMatrixPeerData;
+  newsData: DataConfidenceMatrixNewsData;
 }
 
 export type DataCoverageConfidenceLevel = typeof DataCoverageConfidenceLevel[keyof typeof DataCoverageConfidenceLevel];
@@ -570,7 +688,8 @@ export interface FundamentalAnalysis {
   /** @nullable */
   country?: string | null;
   currency: string;
-  exchange: string;
+  /** @nullable */
+  exchange?: string | null;
   /** @nullable */
   logoUrl?: string | null;
   lastPrice: number;
@@ -596,6 +715,9 @@ export interface FundamentalAnalysis {
   historical: HistoricalSection;
   explanation: FundamentalExplanation;
   dataCoverage: DataCoverage;
+  priceVsBusiness?: PriceVsBusinessSection;
+  newsMomentum?: NewsMomentumSection;
+  dataConfidenceMatrix?: DataConfidenceMatrix;
 }
 
 export interface SaveAnalysisRequest {

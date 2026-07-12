@@ -7,6 +7,7 @@
  */
 import type { CapitalEfficiencySection } from './capitalEfficiencySection';
 import type { CashFlowSection } from './cashFlowSection';
+import type { DataConfidenceMatrix } from './dataConfidenceMatrix';
 import type { DataCoverage } from './dataCoverage';
 import type { FinancialStrengthSection } from './financialStrengthSection';
 import type { FundamentalExplanation } from './fundamentalExplanation';
@@ -14,7 +15,9 @@ import type { FundamentalScores } from './fundamentalScores';
 import type { FundamentalStrength } from './fundamentalStrength';
 import type { GrowthSection } from './growthSection';
 import type { HistoricalSection } from './historicalSection';
+import type { NewsMomentumSection } from './newsMomentumSection';
 import type { PeerComparisonSection } from './peerComparisonSection';
+import type { PriceVsBusinessSection } from './priceVsBusinessSection';
 import type { ProfitabilitySection } from './profitabilitySection';
 import type { RedFlag } from './redFlag';
 import type { ValuationSection } from './valuationSection';
@@ -56,4 +59,7 @@ export interface FundamentalAnalysis {
   historical: HistoricalSection;
   explanation: FundamentalExplanation;
   dataCoverage: DataCoverage;
+  priceVsBusiness?: PriceVsBusinessSection;
+  newsMomentum?: NewsMomentumSection;
+  dataConfidenceMatrix?: DataConfidenceMatrix;
 }

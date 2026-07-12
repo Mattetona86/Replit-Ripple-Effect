@@ -5,17 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AICatalyst } from './aICatalyst';
+import type { AIRisk } from './aIRisk';
 
 export interface FundamentalExplanation {
-  summary: string;
-  growthAnalysis: string;
-  profitabilityAnalysis: string;
-  cashFlowAnalysis: string;
-  balanceSheetAnalysis: string;
-  valuationAnalysis: string;
-  peerAnalysis: string;
-  strengths: string[];
-  risks: string[];
-  conclusion: string;
+  headline: string;
+  ourTake: string;
+  businessLine: string;
+  valuationLine: string;
+  momentumLine: string;
+  mainRisk: string;
+  catalysts: AICatalyst[];
+  aiRisks: AIRisk[];
+  metricsToWatch: string[];
   disclaimer: string;
 }
