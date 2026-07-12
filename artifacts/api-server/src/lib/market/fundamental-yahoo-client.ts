@@ -350,10 +350,11 @@ export async function fetchYahooFundamentalData(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const chartData = (results[7] as PromiseFulfilledResult<any>).value;
       const quotes = chartData?.quotes ?? [];
+      logger.info({ symbol, rawQuoteCount: quotes.length, firstQuoteKeys: quotes[0] ? Object.keys(quotes[0]).join(',') : 'none', firstQuote: quotes[0] ?? null }, "Yahoo chart raw result");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       historicalMonthlyPrices = quotes
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((q: any) => q.adjclose != null || q.close != null)
+        .filter((q: any) => (q.adjclose != null && q.adjclose !== 0) || (q.close != null && q.close !== 0))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((q: any) => {
           const d: Date = q.date instanceof Date ? q.date : new Date(q.date);
@@ -363,8 +364,11 @@ export async function fetchYahooFundamentalData(
           };
         })
         .sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date));
+      logger.info({ symbol, filteredPriceCount: historicalMonthlyPrices.length }, "Yahoo chart filtered prices");
     } else if (results[7]?.status === "rejected") {
       logger.warn({ symbol, err: (results[7] as PromiseRejectedResult).reason }, "Yahoo chart fetch failed (non-fatal)");
+    } else {
+      logger.warn({ symbol, status: results[7]?.status }, "Yahoo chart unexpected status");
     }
 
     // Extract news items from search (call 8)
