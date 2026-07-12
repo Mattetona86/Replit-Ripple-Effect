@@ -1,13 +1,14 @@
 /**
- * Fetches all fundamental data for a symbol via yahoo-finance2 in a single
- * quoteSummary call, then adapts it into the FMP-compatible shapes expected
- * by fundamental-calculator.ts.
+ * Fetches all fundamental data for a symbol via yahoo-finance2.
  *
- * Replaces the 12 parallel FMP calls with one round-trip (~1-2 s).
+ * Uses fundamentalsTimeSeries for financial statements (income, balance, cash-flow)
+ * and quoteSummary for real-time price, ratios, and analyst estimates.
+ *
+ * Replaces the 12 parallel FMP calls with ~7 parallel calls to Yahoo Finance.
  */
 
 import YahooFinance from "yahoo-finance2";
-const yahooFinance = new YahooFinance();
+const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 import { logger } from "../logger";
 import type {
   FmpProfile,
@@ -22,93 +23,83 @@ import type { FundamentalRawData } from "./fundamental-calculator";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Format a Date (or string) as YYYY-MM-DD */
 function fmtDate(d: Date | string | undefined | null): string {
   if (!d) return new Date().toISOString().slice(0, 10);
   if (typeof d === "string") return d.slice(0, 10);
   return d.toISOString().slice(0, 10);
 }
 
-/** Safely divide; returns null if either arg is null/0-denominator */
 function div(a: number | null | undefined, b: number | null | undefined): number | null {
   if (a == null || b == null || b === 0) return null;
   return a / b;
 }
 
-// ── Income statement adapter ──────────────────────────────────────────────────
+// ── Adapters from fundamentalsTimeSeries shapes ───────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapIncome(stmt: any, period: "annual" | "quarter"): FmpIncomeStatement {
-  const date = fmtDate(stmt.endDate);
+function mapFtsIncome(e: any, period: "annual" | "quarter"): FmpIncomeStatement {
+  const date = fmtDate(e.date);
   return {
     date,
     period,
     calendarYear: date.slice(0, 4),
-    revenue: stmt.totalRevenue ?? null,
-    grossProfit: stmt.grossProfit ?? null,
-    operatingIncome: stmt.operatingIncome ?? null,
-    netIncome: stmt.netIncome ?? stmt.netIncomeApplicableToCommonShares ?? null,
-    ebitda: null, // filled in below from cash-flow D&A
-    eps: null,
-    epsDiluted: null,
-    weightedAverageShsOutDil: null,
-    researchAndDevelopmentExpenses: stmt.researchDevelopment ?? null,
-    sellingGeneralAndAdministrativeExpenses: stmt.sellingGeneralAdministrative ?? null,
-    operatingExpenses: stmt.totalOperatingExpenses ?? null,
-    costOfRevenue: stmt.costOfRevenue ?? null,
-    interestExpense: stmt.interestExpense ?? null,
-    incomeTaxExpense: stmt.incomeTaxExpense ?? null,
-    ebit: stmt.ebit ?? stmt.operatingIncome ?? null,
+    revenue: e.totalRevenue ?? e.operatingRevenue ?? null,
+    grossProfit: e.grossProfit ?? null,
+    operatingIncome: e.operatingIncome ?? null,
+    netIncome: e.netIncome ?? e.netIncomeCommonStockholders ?? null,
+    ebitda: e.EBITDA ?? e.normalizedEBITDA ?? null,
+    eps: e.basicEPS ?? null,
+    epsDiluted: e.dilutedEPS ?? null,
+    weightedAverageShsOutDil: e.dilutedAverageShares ?? null,
+    researchAndDevelopmentExpenses: e.researchAndDevelopment ?? null,
+    sellingGeneralAndAdministrativeExpenses: e.sellingGeneralAndAdministration ?? null,
+    operatingExpenses: e.operatingExpense ?? null,
+    costOfRevenue: e.costOfRevenue ?? e.reconciledCostOfRevenue ?? null,
+    interestExpense: e.interestExpense ?? e.interestExpenseNonOperating ?? null,
+    incomeTaxExpense: e.taxProvision ?? null,
+    ebit: e.EBIT ?? e.operatingIncome ?? null,
   };
 }
 
-// ── Balance sheet adapter ─────────────────────────────────────────────────────
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapBalance(stmt: any, period: "annual" | "quarter"): FmpBalanceSheet {
-  const date = fmtDate(stmt.endDate);
-  const cash = stmt.cash ?? null;
-  const shortTermDebt = stmt.shortLongTermDebt ?? null;
-  const longTermDebt = stmt.longTermDebt ?? null;
-  const totalDebt =
-    shortTermDebt != null || longTermDebt != null
-      ? (shortTermDebt ?? 0) + (longTermDebt ?? 0)
-      : null;
-  const netDebt = totalDebt != null && cash != null ? totalDebt - cash : null;
+function mapFtsBalance(e: any, period: "annual" | "quarter"): FmpBalanceSheet {
+  const date = fmtDate(e.date);
+  const cash = e.cashAndCashEquivalents ?? null;
+  const shortTermDebt = e.currentDebt ?? null;
+  const longTermDebt = e.longTermDebt ?? null;
+  const totalDebt = e.totalDebt ?? null;
+  const netDebt = e.netDebt ?? (totalDebt != null && cash != null ? totalDebt - cash : null);
 
   return {
     date,
     period,
     calendarYear: date.slice(0, 4),
     cashAndCashEquivalents: cash,
-    shortTermInvestments: stmt.shortTermInvestments ?? null,
-    totalCurrentAssets: stmt.totalCurrentAssets ?? null,
-    totalAssets: stmt.totalAssets ?? null,
-    totalCurrentLiabilities: stmt.totalCurrentLiabilities ?? null,
-    totalLiabilities: stmt.totalLiab ?? null,
-    totalEquity: stmt.totalStockholderEquity ?? null,
+    shortTermInvestments: e.otherShortTermInvestments ?? null,
+    totalCurrentAssets: e.currentAssets ?? null,
+    totalAssets: e.totalAssets ?? null,
+    totalCurrentLiabilities: e.currentLiabilities ?? null,
+    totalLiabilities: e.totalLiabilitiesNetMinorityInterest ?? null,
+    totalEquity: e.stockholdersEquity ?? e.commonStockEquity ?? null,
     totalDebt,
     netDebt,
     longTermDebt,
     shortTermDebt,
-    goodwill: stmt.goodwill ?? null,
-    intangibleAssets: stmt.intangibleAssets ?? null,
-    inventory: stmt.inventory ?? null,
-    netReceivables: stmt.netReceivables ?? null,
-    retainedEarnings: stmt.retainedEarnings ?? null,
-    minorityInterest: null,
+    goodwill: e.goodwill ?? null,
+    intangibleAssets: e.otherIntangibleAssets ?? e.goodwillAndOtherIntangibleAssets ?? null,
+    inventory: e.inventory ?? null,
+    netReceivables: e.accountsReceivable ?? e.receivables ?? null,
+    retainedEarnings: e.retainedEarnings ?? null,
+    minorityInterest: e.minorityInterest ?? null,
   };
 }
 
-// ── Cash flow adapter ─────────────────────────────────────────────────────────
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapCashFlow(stmt: any, period: "annual" | "quarter"): FmpCashFlow {
-  const date = fmtDate(stmt.endDate);
-  const ocf: number | null = stmt.totalCashFromOperatingActivities ?? null;
-  // Yahoo reports capex as a negative number
-  const capex: number | null = stmt.capitalExpenditures ?? null;
-  const fcf = ocf != null && capex != null ? ocf + capex : ocf;
+function mapFtsCashFlow(e: any, period: "annual" | "quarter"): FmpCashFlow {
+  const date = fmtDate(e.date);
+  const ocf: number | null = e.operatingCashFlow ?? e.cashFlowFromContinuingOperatingActivities ?? null;
+  const capex: number | null = e.capitalExpenditure ?? e.purchaseOfPPE ?? null;
+  const fcf = e.freeCashFlow ?? (ocf != null && capex != null ? ocf + capex : null);
 
   return {
     date,
@@ -117,32 +108,18 @@ function mapCashFlow(stmt: any, period: "annual" | "quarter"): FmpCashFlow {
     operatingCashFlow: ocf,
     capitalExpenditure: capex,
     freeCashFlow: fcf,
-    stockBasedCompensation: stmt.stockBasedCompensation ?? null,
+    stockBasedCompensation: e.stockBasedCompensation ?? null,
     acquisitionsNet: null,
-    dividendsPaid: stmt.dividendsPaid ?? null,
-    commonStockRepurchased: stmt.repurchaseOfStock ?? null,
-    debtRepayment: stmt.netBorrowings ?? null,
-    netChangeInCash: stmt.changeInCash ?? null,
-    deprecationAndAmortization: stmt.depreciation ?? null,
+    dividendsPaid: e.cashDividendsPaid ?? e.commonStockDividendPaid ?? null,
+    commonStockRepurchased: e.repurchaseOfCapitalStock ?? null,
+    debtRepayment: e.repaymentOfDebt ?? e.longTermDebtPayments ?? null,
+    netChangeInCash: e.changesInCash ?? null,
+    deprecationAndAmortization:
+      e.depreciationAmortizationDepletion ??
+      e.depreciationAndAmortization ??
+      e.depreciation ??
+      null,
   };
-}
-
-// ── Back-fill EBITDA in income statements using D&A from cash flows ───────────
-
-function fillEbitda(incomes: FmpIncomeStatement[], cashFlows: FmpCashFlow[]): void {
-  const daByYear: Record<string, number> = {};
-  for (const cf of cashFlows) {
-    if (cf.deprecationAndAmortization != null) {
-      daByYear[cf.date.slice(0, 4)] = Math.abs(cf.deprecationAndAmortization);
-    }
-  }
-  for (const inc of incomes) {
-    const ebit = inc.ebit;
-    const da = daByYear[inc.date.slice(0, 4)];
-    if (ebit != null && da != null) {
-      inc.ebitda = ebit + da;
-    }
-  }
 }
 
 // ── Compute annual key-metrics from statements ────────────────────────────────
@@ -156,9 +133,7 @@ function buildAnnualKeyMetrics(
     const bal = balances[i];
     const cf = cashFlows[i];
     const rev = inc.revenue;
-    const ni = inc.netIncome;
     const ebit = inc.ebit;
-    const intExp = inc.interestExpense;
     const assets = bal?.totalAssets;
     const equity = bal?.totalEquity;
     const debt = bal?.totalDebt;
@@ -167,8 +142,8 @@ function buildAnnualKeyMetrics(
     const inv = bal?.inventory;
     const rec = bal?.netReceivables;
     const fcf = cf?.freeCashFlow;
+    const intExp = inc.interestExpense;
 
-    // ROIC ≈ NOPAT / (Equity + Debt); NOPAT = EBIT × (1 − 21 % est. tax)
     const investedCapital =
       equity != null && debt != null ? equity + debt : null;
     const nopat = ebit != null ? ebit * 0.79 : null;
@@ -279,49 +254,107 @@ function buildAnnualRatios(
 export async function fetchYahooFundamentalData(
   symbol: string,
 ): Promise<FundamentalRawData | null> {
+  const period1 = "2019-01-01";
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let qs: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ftsAnnualFin: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ftsAnnualBs: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ftsAnnualCf: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ftsQtrFin: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ftsQtrBs: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ftsQtrCf: any[] = [];
+
   try {
-    qs = await yahooFinance.quoteSummary(symbol, {
-      modules: [
-        "price",
-        "summaryProfile",
-        "defaultKeyStatistics",
-        "financialData",
-        "incomeStatementHistory",
-        "incomeStatementHistoryQuarterly",
-        "balanceSheetHistory",
-        "balanceSheetHistoryQuarterly",
-        "cashflowStatementHistory",
-        "cashflowStatementHistoryQuarterly",
-        "earningsTrend",
-        "summaryDetail",
-      ],
-    } as Parameters<typeof yahooFinance.quoteSummary>[1]);
+    const results = await Promise.allSettled([
+      // 0: quoteSummary for price, profile, ratios, estimates
+      yahooFinance.quoteSummary(symbol, {
+        modules: [
+          "price",
+          "summaryProfile",
+          "defaultKeyStatistics",
+          "financialData",
+          "earningsTrend",
+          "summaryDetail",
+        ],
+      } as Parameters<typeof yahooFinance.quoteSummary>[1]),
+      // 1-3: Annual financials
+      yahooFinance.fundamentalsTimeSeries(
+        symbol,
+        { period1, type: "annual", module: "financials" },
+        { validateResult: false },
+      ),
+      yahooFinance.fundamentalsTimeSeries(
+        symbol,
+        { period1, type: "annual", module: "balance-sheet" },
+        { validateResult: false },
+      ),
+      yahooFinance.fundamentalsTimeSeries(
+        symbol,
+        { period1, type: "annual", module: "cash-flow" },
+        { validateResult: false },
+      ),
+      // 4-6: Quarterly financials (for TTM)
+      yahooFinance.fundamentalsTimeSeries(
+        symbol,
+        { period1: "2022-01-01", type: "quarterly", module: "financials" },
+        { validateResult: false },
+      ),
+      yahooFinance.fundamentalsTimeSeries(
+        symbol,
+        { period1: "2022-01-01", type: "quarterly", module: "balance-sheet" },
+        { validateResult: false },
+      ),
+      yahooFinance.fundamentalsTimeSeries(
+        symbol,
+        { period1: "2022-01-01", type: "quarterly", module: "cash-flow" },
+        { validateResult: false },
+      ),
+    ]);
+
+    if (results[0].status === "rejected") {
+      logger.error({ symbol, err: results[0].reason }, "Yahoo quoteSummary failed");
+      return null;
+    }
+    qs = (results[0] as PromiseFulfilledResult<unknown>).value;
+
+    if (results[1].status === "fulfilled") ftsAnnualFin = (results[1].value as unknown[]) ?? [];
+    if (results[2].status === "fulfilled") ftsAnnualBs = (results[2].value as unknown[]) ?? [];
+    if (results[3].status === "fulfilled") ftsAnnualCf = (results[3].value as unknown[]) ?? [];
+    if (results[4].status === "fulfilled") ftsQtrFin = (results[4].value as unknown[]) ?? [];
+    if (results[5].status === "fulfilled") ftsQtrBs = (results[5].value as unknown[]) ?? [];
+    if (results[6].status === "fulfilled") ftsQtrCf = (results[6].value as unknown[]) ?? [];
   } catch (err) {
-    logger.error({ symbol, err }, "Yahoo Finance quoteSummary failed");
+    logger.error({ symbol, err }, "Yahoo Finance fetch failed");
     return null;
   }
 
-  const {
-    price,
-    summaryProfile,
-    defaultKeyStatistics,
-    financialData,
-    incomeStatementHistory,
-    incomeStatementHistoryQuarterly,
-    balanceSheetHistory,
-    balanceSheetHistoryQuarterly,
-    cashflowStatementHistory,
-    cashflowStatementHistoryQuarterly,
-    earningsTrend,
-    summaryDetail,
-  } = qs as Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { price, summaryProfile, defaultKeyStatistics, financialData, earningsTrend, summaryDetail } = qs as Record<string, any>;
 
   if (!price) {
     logger.warn({ symbol }, "Yahoo Finance: no price data");
     return null;
   }
+
+  logger.info(
+    {
+      symbol,
+      annualFin: ftsAnnualFin.length,
+      annualBs: ftsAnnualBs.length,
+      annualCf: ftsAnnualCf.length,
+      qtrFin: ftsQtrFin.length,
+      qtrBs: ftsQtrBs.length,
+      qtrCf: ftsQtrCf.length,
+    },
+    "Yahoo Finance data fetched",
+  );
 
   // ── Profile ─────────────────────────────────────────────────────────────────
   const profile: FmpProfile = {
@@ -339,6 +372,7 @@ export async function fetchYahooFundamentalData(
     isFund: false,
     isEtf: false,
     isActivelyTrading: true,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     website: (summaryProfile as any)?.website ?? null,
     description: summaryProfile?.longBusinessSummary ?? null,
     fullTimeEmployees:
@@ -349,22 +383,28 @@ export async function fetchYahooFundamentalData(
   };
 
   // ── Financial statements ─────────────────────────────────────────────────────
+  // fundamentalsTimeSeries returns oldest-first; reverse to newest-first (FMP convention)
+  // Filter out entries without revenue (sparse entries)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const annualIncome = ((incomeStatementHistory?.incomeStatementHistory ?? []) as any[]).map((s) => mapIncome(s, "annual"));
+  const validAnnualFin = [...ftsAnnualFin].reverse().filter((e: any) => e.totalRevenue != null || e.operatingRevenue != null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const quarterlyIncome = ((incomeStatementHistoryQuarterly?.incomeStatementHistoryQuarterly ?? []) as any[]).map((s) => mapIncome(s, "quarter"));
+  const validAnnualBs = [...ftsAnnualBs].reverse().filter((e: any) => e.totalAssets != null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const annualBalance = ((balanceSheetHistory?.balanceSheetStatements ?? []) as any[]).map((s) => mapBalance(s, "annual"));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const quarterlyBalance = ((balanceSheetHistoryQuarterly?.balanceSheetStatements ?? []) as any[]).map((s) => mapBalance(s, "quarter"));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const annualCashFlow = ((cashflowStatementHistory?.cashflowStatements ?? []) as any[]).map((s) => mapCashFlow(s, "annual"));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const quarterlyCashFlow = ((cashflowStatementHistoryQuarterly?.cashflowStatements ?? []) as any[]).map((s) => mapCashFlow(s, "quarter"));
+  const validAnnualCf = [...ftsAnnualCf].reverse().filter((e: any) => e.operatingCashFlow != null || e.cashFlowFromContinuingOperatingActivities != null);
 
-  // Back-fill EBITDA
-  fillEbitda(annualIncome, annualCashFlow);
-  fillEbitda(quarterlyIncome, quarterlyCashFlow);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const validQtrFin = [...ftsQtrFin].reverse().filter((e: any) => e.totalRevenue != null || e.operatingRevenue != null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const validQtrBs = [...ftsQtrBs].reverse().filter((e: any) => e.totalAssets != null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const validQtrCf = [...ftsQtrCf].reverse().filter((e: any) => e.operatingCashFlow != null || e.cashFlowFromContinuingOperatingActivities != null);
+
+  const annualIncome = validAnnualFin.map((e) => mapFtsIncome(e, "annual"));
+  const quarterlyIncome = validQtrFin.map((e) => mapFtsIncome(e, "quarter"));
+  const annualBalance = validAnnualBs.map((e) => mapFtsBalance(e, "annual"));
+  const quarterlyBalance = validQtrBs.map((e) => mapFtsBalance(e, "quarter"));
+  const annualCashFlow = validAnnualCf.map((e) => mapFtsCashFlow(e, "annual"));
+  const quarterlyCashFlow = validQtrCf.map((e) => mapFtsCashFlow(e, "quarter"));
 
   // ── TTM key metrics (from Yahoo's pre-computed financialData + stats) ────────
   const today = new Date().toISOString().slice(0, 10);
@@ -379,7 +419,7 @@ export async function fetchYahooFundamentalData(
     financialData?.debtToEquity != null
       ? financialData.debtToEquity / 100
       : null;
-  const latestAssets = annualBalance[0]?.totalAssets ?? null;
+  const latestAssets = annualBalance[0]?.totalAssets ?? quarterlyBalance[0]?.totalAssets ?? null;
 
   const keyMetricsTtm: FmpKeyMetrics[] = [
     {
@@ -431,7 +471,6 @@ export async function fetchYahooFundamentalData(
     },
   ];
 
-  // Annual key metrics (computed from statements)
   const keyMetricsAnnual = buildAnnualKeyMetrics(
     annualIncome,
     annualBalance,
@@ -519,7 +558,7 @@ export async function fetchYahooFundamentalData(
     ratiosAnnual,
     ratiosTtm,
     estimates,
-    // Peers not supported via Yahoo Finance without additional calls; return empty
+    // Peers not supported via Yahoo Finance without additional calls
     peerProfiles: [],
     peerKeyMetricsTtm: [],
     peerIncomeAnnual: [],
