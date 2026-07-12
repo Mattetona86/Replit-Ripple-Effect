@@ -1,0 +1,714 @@
+Voglio trasformare “The Ripple Effect” da una raccolta di strumenti finanziari separati a una piattaforma unificata di market intelligence.
+
+Non iniziare implementando subito tutte le funzionalità.
+
+Prima analizza il progetto esistente, proponi l’architettura e poi implementa un MVP verticale completo basato su UNA singola notizia.
+
+VISIONE DEL PRODOTTO
+
+The Ripple Effect non deve essere un normale aggregatore di news.
+
+La piattaforma deve:
+
+1. raccogliere notizie finanziarie rilevanti;
+2. identificare l’evento economico contenuto nella notizia;
+3. distinguere rumore, catalizzatori tattici e cambiamenti strutturali;
+4. spiegare perché la notizia è importante;
+5. identificare gli effetti diretti e indiretti sulla supply chain;
+6. trovare le aziende quotate che potrebbero beneficiare o essere penalizzate;
+7. ordinare queste aziende combinando esposizione al tema, fondamentali, valutazione, timing e rischio;
+8. permettere all’utente di approfondire ogni azienda attraverso analisi fondamentale e tecnica.
+
+La domanda principale a cui il prodotto deve rispondere è:
+
+“Il titolo direttamente coinvolto si è già mosso. Quali aziende collegate potrebbero beneficiare successivamente dagli effetti di primo e secondo livello?”
+
+--------------------------------------------------
+1. MVP DA IMPLEMENTARE
+--------------------------------------------------
+
+Per questa prima iterazione NON costruire ancora un feed automatico.
+
+Costruire una pagina interna chiamata:
+
+“Ripple Lab”
+
+La pagina deve permettere all’utente di inserire:
+
+- titolo della notizia;
+- testo o descrizione;
+- fonte;
+- URL;
+- data;
+- ticker principali opzionali.
+
+Dopo l’invio, il backend deve elaborare la notizia e restituire un’analisi Ripple completa.
+
+Il flusso deve essere:
+
+News Input
+→ Event Extraction
+→ News Classification
+→ Economic Drivers
+→ Industries Impacted
+→ Company Connections
+→ Ripple Scoring
+→ Final Explanation
+
+Usare dati reali quando già disponibili nel progetto.
+
+Non usare dati mock nella versione finale.
+
+--------------------------------------------------
+2. OUTPUT DELLA NEWS ANALYSIS
+--------------------------------------------------
+
+Per ogni notizia generare questa struttura:
+
+{
+  "news": {
+    "headline": "",
+    "source": "",
+    "publishedAt": "",
+    "url": "",
+    "primaryTickers": []
+  },
+  "event": {
+    "eventTitle": "",
+    "eventSummary": "",
+    "eventType": "",
+    "factualStatement": "",
+    "interpretation": "",
+    "uncertainties": []
+  },
+  "classification": {
+    "importance": "",
+    "direction": "",
+    "timeHorizon": "",
+    "confidence": 0,
+    "themes": []
+  },
+  "economicDrivers": [],
+  "industries": [],
+  "rippleChain": [],
+  "opportunities": [],
+  "risks": [],
+  "confirmationSignals": [],
+  "invalidationSignals": [],
+  "sources": []
+}
+
+--------------------------------------------------
+3. CLASSIFICAZIONE DELLE NEWS
+--------------------------------------------------
+
+IMPORTANCE
+
+Utilizzare una delle seguenti categorie:
+
+STRUCTURAL_SHIFT
+
+La notizia crea, accelera, conferma o mette in discussione un trend pluriennale.
+
+THEME_BOOSTER
+
+La notizia rafforza un tema economico nei prossimi 6–18 mesi.
+
+TACTICAL_CATALYST
+
+La notizia può avere un impatto rilevante nel breve periodo, ma non cambia necessariamente la tesi strutturale.
+
+NOISE
+
+La notizia non ha un impatto economico materiale o verificabile.
+
+DIRECTION
+
+- very_positive
+- positive
+- neutral
+- negative
+- very_negative
+- mixed
+
+TIME HORIZON
+
+- immediate: ore o giorni
+- short_term: 1–8 settimane
+- medium_term: 2–12 mesi
+- long_term: oltre 12 mesi
+
+CONFIDENCE
+
+Punteggio da 0 a 100 basato su:
+
+- qualità della fonte;
+- chiarezza del collegamento economico;
+- presenza di dati;
+- numero di conferme;
+- livello di inferenza richiesto.
+
+--------------------------------------------------
+4. EVENT TYPES
+--------------------------------------------------
+
+Utilizzare una tassonomia controllata:
+
+- earnings
+- guidance
+- capex
+- major_contract
+- product_launch
+- supply_constraint
+- production_expansion
+- pricing
+- demand_change
+- acquisition
+- partnership
+- regulation
+- government_spending
+- tariffs
+- sanctions
+- export_controls
+- litigation
+- management_change
+- financing
+- interest_rates
+- inflation
+- commodity_price
+- geopolitical_event
+- natural_disaster
+- analyst_revision
+- technology_breakthrough
+- other
+
+--------------------------------------------------
+5. RIPPLE CHAIN
+--------------------------------------------------
+
+La Ripple Chain deve avere massimo tre livelli:
+
+LEVEL 0 — DIRECT
+
+Azienda, industria o asset direttamente coinvolto nella notizia.
+
+LEVEL 1 — FIRST ORDER
+
+Fornitori, clienti, competitor o infrastrutture direttamente necessari.
+
+LEVEL 2 — SECOND ORDER
+
+Aziende e industrie che potrebbero beneficiare indirettamente dall’aumento di investimenti, domanda, capacità o infrastruttura.
+
+Ogni nodo deve avere:
+
+{
+  "id": "",
+  "type": "company | industry | theme | economic_driver",
+  "label": "",
+  "ticker": null,
+  "level": 0,
+  "direction": "positive | negative | mixed",
+  "relationship": "",
+  "mechanism": "",
+  "timeHorizon": "",
+  "confidence": 0,
+  "evidence": []
+}
+
+Ogni relazione deve essere classificata come:
+
+- confirmed
+- strongly_supported
+- plausible
+- speculative
+
+Nell’MVP mostrare di default soltanto:
+
+- confirmed;
+- strongly_supported;
+- plausible con confidence elevata.
+
+Non mostrare le relazioni speculative nella schermata principale.
+
+--------------------------------------------------
+6. COMPANY OPPORTUNITIES
+--------------------------------------------------
+
+Per ogni azienda collegata calcolare:
+
+EXPOSURE SCORE — 0–100
+
+Quanto l’azienda è esposta al driver economico della notizia.
+
+Considerare:
+
+- percentuale stimata del business esposto;
+- ruolo nella supply chain;
+- dipendenza dal prodotto o settore;
+- relazione con clienti o fornitori coinvolti;
+- geografia;
+- capacità produttiva.
+
+CAUSALITY SCORE — 0–100
+
+Quanto è diretto e credibile il collegamento causa-effetto.
+
+TIMING SCORE — 0–100
+
+Quanto rapidamente il potenziale impatto potrebbe manifestarsi.
+
+FUNDAMENTAL QUALITY SCORE — 0–100
+
+Utilizzare il modulo di analisi fondamentale già presente nel progetto.
+
+Considerare inizialmente:
+
+- revenue growth;
+- EPS growth;
+- operating margin;
+- FCF margin;
+- ROIC;
+- net debt;
+- share dilution.
+
+VALUATION SCORE — 0–100
+
+Considerare:
+
+- P/E;
+- EV/EBITDA;
+- Price/FCF;
+- storico dell’azienda, se disponibile;
+- confronto con competitor, se disponibile.
+
+Se storico e competitor non sono disponibili, abbassare il confidence level.
+
+CONFIRMATION SCORE — 0–100
+
+Considerare:
+
+- guidance;
+- backlog;
+- capex;
+- ordini;
+- commenti management;
+- revisioni degli analisti;
+- altre news coerenti;
+- performance e volume di mercato, se disponibili.
+
+RISK SCORE — 0–100
+
+Un valore alto indica maggiore rischio.
+
+Considerare:
+
+- customer concentration;
+- geopolitica;
+- debito;
+- capacità;
+- concorrenza;
+- ciclicità;
+- valutazione;
+- rischio regolatorio.
+
+RIPPLE OPPORTUNITY SCORE
+
+Calcolare:
+
+0.30 × Exposure
++ 0.20 × Causality
++ 0.10 × Timing
++ 0.15 × Fundamental Quality
++ 0.10 × Valuation
++ 0.10 × Confirmation
++ 0.05 × (100 - Risk)
+
+Il punteggio finale deve essere compreso tra 0 e 100.
+
+Ogni opportunità deve avere:
+
+{
+  "companyName": "",
+  "ticker": "",
+  "relationshipType": "",
+  "rippleLevel": 1,
+  "direction": "",
+  "mechanism": "",
+  "timeHorizon": "",
+  "exposureScore": 0,
+  "causalityScore": 0,
+  "timingScore": 0,
+  "fundamentalScore": null,
+  "valuationScore": null,
+  "confirmationScore": 0,
+  "riskScore": 0,
+  "rippleOpportunityScore": 0,
+  "confidence": 0,
+  "whyItMatters": "",
+  "metricsToMonitor": [],
+  "mainRisk": "",
+  "evidence": []
+}
+
+Non mostrare più di cinque opportunità nella risposta principale.
+
+--------------------------------------------------
+7. REGOLE DI AFFIDABILITÀ
+--------------------------------------------------
+
+L’AI non deve inventare relazioni tra aziende.
+
+Ogni relazione deve avere almeno una delle seguenti basi:
+
+- relazione cliente-fornitore documentata;
+- partnership;
+- filing;
+- investor presentation;
+- dichiarazione del management;
+- fonte giornalistica autorevole;
+- relazione industriale ampiamente documentata;
+- inferenza economica chiaramente dichiarata.
+
+Separare sempre:
+
+FACT
+
+Informazione confermata dalla fonte.
+
+INFERENCE
+
+Conclusione derivata dai dati o dalla struttura economica.
+
+SPECULATION
+
+Ipotesi con evidenza limitata.
+
+Non mostrare una relazione come “confirmed” se deriva solamente dal ragionamento del modello AI.
+
+Non inventare percentuali di esposizione.
+
+Quando un dato non è disponibile, usare null.
+
+--------------------------------------------------
+8. INTERFACCIA RIPPLE LAB
+--------------------------------------------------
+
+Creare una pagina con due stati.
+
+STATO 1 — INPUT
+
+Una card centrale con:
+
+- headline;
+- news body;
+- source;
+- URL;
+- date;
+- primary ticker;
+- pulsante “Analyze Ripple”.
+
+STATO 2 — RESULT
+
+Mostrare in questo ordine:
+
+A. NEWS HEADER
+
+- headline;
+- fonte;
+- data;
+- ticker;
+- link originale.
+
+B. WHAT HAPPENED
+
+Sintesi fattuale di massimo 80 parole.
+
+C. WHY IT MATTERS
+
+- importance classification;
+- direction;
+- time horizon;
+- confidence;
+- themes.
+
+D. RIPPLE CHAIN
+
+Visualizzazione orizzontale o a colonne:
+
+Event
+→ Economic Driver
+→ First-order industries
+→ Second-order industries
+→ Companies
+
+Non creare inizialmente una network graph complessa.
+
+Usare card collegate da frecce.
+
+Ogni nodo deve mostrare:
+
+- nome;
+- tipo;
+- direzione;
+- confidence;
+- relationship.
+
+E. TOP RIPPLE OPPORTUNITIES
+
+Mostrare massimo cinque aziende ordinate per Ripple Opportunity Score.
+
+Ogni card deve contenere:
+
+- ticker e nome;
+- Ripple Score;
+- direct o second-order;
+- una frase “Why this company?”;
+- fundamental quality;
+- valuation;
+- time horizon;
+- confidence;
+- main risk;
+- metrics to monitor;
+- pulsante “Open company analysis”.
+
+F. CATALYSTS AND RISKS
+
+Due colonne con massimo quattro elementi ciascuna.
+
+G. CONFIRM OR INVALIDATE
+
+Mostrare:
+
+- confirmation signals;
+- invalidation signals;
+- prossime metriche o eventi da monitorare.
+
+H. SOURCES AND METHODOLOGY
+
+Mostrare:
+
+- fonti;
+- relazioni confermate;
+- inferenze;
+- data confidence;
+- metodologia del Ripple Score.
+
+--------------------------------------------------
+9. LOOK AND FEEL
+--------------------------------------------------
+
+Mantenere l’identità visuale esistente di The Ripple Effect:
+
+- sfondo chiaro;
+- card bianche;
+- bordi sottili;
+- angoli arrotondati;
+- font e navbar esistenti;
+- supporto IT/EN.
+
+La gerarchia visiva deve essere:
+
+1. news;
+2. significato;
+3. ripple chain;
+4. top opportunities;
+5. dettagli.
+
+Non mostrare grandi tabelle.
+
+Non mostrare decine di aziende.
+
+Non usare troppo verde e rosso.
+
+Usare:
+
+- verde per impatti positivi;
+- rosso/arancione per impatti negativi o rischi;
+- blu per informazioni neutrali;
+- viola per temi;
+- grigio per informazioni non disponibili.
+
+Il Ripple Score deve essere visibile, ma non deve dominare l’interfaccia.
+
+--------------------------------------------------
+10. ARCHITETTURA
+--------------------------------------------------
+
+Creare componenti separati:
+
+- NewsInputForm
+- NewsClassificationBadge
+- EventSummary
+- RippleChain
+- RippleNode
+- OpportunityCard
+- RippleScoreBreakdown
+- CatalystRiskPanel
+- ConfirmationPanel
+- SourceEvidenceList
+- DataConfidenceBadge
+
+Creare servizi separati:
+
+- newsAnalysisService
+- eventExtractionService
+- classificationService
+- relationshipService
+- rippleScoringService
+- fundamentalService
+- valuationService
+- evidenceService
+
+Creare modelli persistenti per:
+
+- NewsArticle
+- MarketEvent
+- Theme
+- Company
+- CompanyRelationship
+- RippleAnalysis
+- RippleNode
+- RippleOpportunity
+- EvidenceSource
+
+Non incorporare tutta la logica in un singolo prompt o componente React.
+
+--------------------------------------------------
+11. RELATIONSHIP DATABASE
+--------------------------------------------------
+
+Creare una struttura dati per relazioni relativamente stabili:
+
+CompanyRelationship {
+  sourceCompanyId
+  targetCompanyId
+  relationshipType
+  description
+  themes
+  direction
+  confidence
+  evidenceSources
+  validFrom
+  validTo
+  lastVerifiedAt
+}
+
+Relationship types:
+
+- supplier
+- customer
+- competitor
+- manufacturing_partner
+- technology_partner
+- distributor
+- infrastructure_provider
+- commodity_supplier
+- energy_provider
+- financing_partner
+- regulatory_exposure
+- thematic_exposure
+
+Il motore deve prima cercare relazioni nel database.
+
+L’AI può suggerire nuove relazioni, ma queste devono essere salvate come “unverified” finché non sono supportate da evidenze.
+
+--------------------------------------------------
+12. TEMI MVP
+--------------------------------------------------
+
+Preparare la tassonomia per:
+
+- AI infrastructure
+- semiconductors
+- data centers
+- power grid
+- nuclear energy
+- defense
+- drones
+- robotics
+- cybersecurity
+- rare earths
+- quantum computing
+
+Non è necessario popolare immediatamente tutte le aziende.
+
+Creare inizialmente una piccola knowledge base per:
+
+- NVIDIA;
+- Microsoft;
+- Amazon;
+- Alphabet;
+- Meta;
+- TSMC;
+- Micron;
+- Broadcom;
+- Arista Networks;
+- Vertiv;
+- Eaton;
+- GE Vernova;
+- ASML;
+- AMD;
+- Super Micro Computer.
+
+--------------------------------------------------
+13. TEST CASE
+--------------------------------------------------
+
+Usare come primo caso di test:
+
+“NVIDIA reports stronger-than-expected data-center revenue and raises guidance due to accelerating demand for AI infrastructure.”
+
+L’output atteso deve:
+
+- classificare la news almeno come Theme Booster;
+- valutare se esistono elementi da Structural Shift;
+- identificare GPU demand come economic driver;
+- collegare almeno memoria HBM, foundry, packaging, networking, power e cooling;
+- distinguere first-order e second-order;
+- non considerare tutte le aziende ugualmente esposte;
+- generare massimo cinque opportunità;
+- spiegare il meccanismo economico;
+- indicare i rischi;
+- indicare le metriche da monitorare.
+
+Non codificare manualmente l’output del test.
+
+--------------------------------------------------
+14. SEQUENZA DI LAVORO
+--------------------------------------------------
+
+Prima di scrivere codice:
+
+1. analizza il repository esistente;
+2. identifica stack, database, API, moduli e componenti già presenti;
+3. individua cosa può essere riutilizzato dal modulo fondamentale;
+4. proponi schema dati;
+5. proponi architettura dei servizi;
+6. elenca i file da creare o modificare;
+7. identifica eventuali provider aggiuntivi necessari;
+8. segnala limiti dei dati Yahoo Finance;
+9. implementa Ripple Lab;
+10. completa il test NVIDIA.
+
+Non implementare ancora:
+
+- feed automatico;
+- notifiche;
+- community;
+- Borsa Italiana;
+- personalizzazione;
+- trading;
+- target price;
+- portafoglio.
+
+Al termine mostra:
+
+- funzionalità implementate;
+- struttura del database;
+- servizi creati;
+- formule del Ripple Score;
+- dati reali utilizzati;
+- dati mancanti;
+- screenshot o descrizione del flusso;
+- prossima fase raccomandata.

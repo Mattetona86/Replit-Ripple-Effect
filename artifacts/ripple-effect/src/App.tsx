@@ -16,6 +16,7 @@ import Landing from '@/pages/landing';
 import Products from '@/pages/products';
 import TechnicalAnalysis from '@/pages/technical-analysis';
 import FundamentalAnalysis from '@/pages/fundamental-analysis';
+import RippleLab from '@/pages/ripple-lab';
 import { Layout } from '@/components/layout';
 
 const clerkPubKey = publishableKeyFromHost(
@@ -198,6 +199,9 @@ function ClerkProviderWithRoutes() {
           </Route>
           <Route path="/products/fundamental-analysis">
             <ProtectedRoute component={FundamentalAnalysis} />
+          </Route>
+          <Route path="/products/ripple-lab">
+            <ProtectedRoute component={RippleLab} />
           </Route>
           
           <Route component={NotFound} />

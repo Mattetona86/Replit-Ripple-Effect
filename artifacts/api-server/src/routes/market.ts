@@ -21,6 +21,7 @@ import {
   GetFundamentalAnalysisQueryParams,
   GetFundamentalAnalysisResponse,
 } from "@workspace/api-zod";
+import { analyzeRipple } from "../lib/ripple-lab/ripple-service";
 
 const router: IRouter = Router();
 
@@ -88,6 +89,35 @@ router.delete("/market/saved/:id", async (req: Request, res: Response): Promise<
     return;
   }
   res.status(204).end();
+});
+
+router.post("/market/ripple-lab/analyze", async (req: Request, res: Response): Promise<void> => {
+  const body = req.body as Record<string, unknown>;
+
+  const headline = typeof body.headline === "string" ? body.headline.trim() : "";
+  if (!headline) {
+    res.status(400).json({ error: "headline is required" });
+    return;
+  }
+
+  const language = body.language === "it" ? "it" : "en";
+
+  const tickers = Array.isArray(body.primaryTickers)
+    ? (body.primaryTickers as unknown[]).filter((t): t is string => typeof t === "string").slice(0, 10)
+    : undefined;
+
+  const analysis = await analyzeRipple(
+    {
+      headline,
+      body: typeof body.body === "string" ? body.body || undefined : undefined,
+      source: typeof body.source === "string" ? body.source || undefined : undefined,
+      url: typeof body.url === "string" && body.url ? body.url : undefined,
+      publishedAt: typeof body.publishedAt === "string" ? body.publishedAt || undefined : undefined,
+      primaryTickers: tickers,
+    },
+    language,
+  );
+  res.json(analysis);
 });
 
 export default router;

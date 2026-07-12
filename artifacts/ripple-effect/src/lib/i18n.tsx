@@ -114,6 +114,64 @@ const dict: Dictionary = {
     // Nav additions
     'nav.ta': 'Technical',
     'nav.fa': 'Fundamental',
+    'nav.rl': 'Ripple Lab',
+
+    // Products hub - Ripple Lab card
+    'product.rl.title': 'Ripple Lab',
+    'product.rl.desc': 'Enter any financial news item and get an AI-powered analysis of the economic event, ripple chain, top connected opportunities, and what to watch next.',
+    'product.rl.action': 'Open Tool',
+
+    // Ripple Lab page
+    'rl.input.title': 'Ripple Lab',
+    'rl.input.subtitle': 'Enter a financial news item. The engine will identify the economic event, map the ripple chain, and surface connected companies worth watching.',
+    'rl.field.headline': 'Headline',
+    'rl.field.headline.placeholder': 'e.g. NVIDIA reports stronger-than-expected data-center revenue...',
+    'rl.field.body': 'News body (optional)',
+    'rl.field.body.placeholder': 'Paste the full article text or a summary for more precise analysis...',
+    'rl.field.source': 'Source',
+    'rl.field.date': 'Date',
+    'rl.field.url': 'URL',
+    'rl.field.tickers': 'Primary tickers (optional)',
+    'rl.analyze': 'Analyze Ripple',
+    'rl.analyzing': 'Analyzing…',
+    'rl.example': 'Load example',
+    'rl.newAnalysis': 'New analysis',
+    'rl.analysisReady': 'Analysis complete',
+    'rl.error': 'Analysis failed. Please try again.',
+    'rl.disclaimer': 'For educational and informational purposes only. Not financial advice.',
+    'rl.none': 'None identified.',
+    // Sections
+    'rl.section.whatHappened': 'What happened',
+    'rl.section.whyMatters': 'Why it matters',
+    'rl.section.drivers': 'Economic drivers',
+    'rl.section.rippleChain': 'Ripple chain',
+    'rl.section.opportunities': 'Top Ripple Opportunities',
+    'rl.section.opportunities.sub': 'Companies ranked by Ripple Opportunity Score',
+    'rl.section.catalysts': 'Confirmation signals',
+    'rl.section.risks': 'Key risks',
+    'rl.section.confirmInvalidate': 'Confirm or Invalidate',
+    'rl.section.sources': 'Sources & Methodology',
+    // Labels
+    'rl.label.fact': 'Fact',
+    'rl.label.inference': 'Inference',
+    'rl.label.horizon': 'Time horizon',
+    'rl.label.confidence': 'Confidence',
+    'rl.label.confirm': 'What would confirm the thesis',
+    'rl.label.invalidate': 'What would invalidate the thesis',
+    'rl.label.claimsAndEvidence': 'Claims & evidence',
+    'rl.label.methodology': 'Methodology',
+    // Chain columns
+    'rl.chain.direct': 'Direct (L0)',
+    'rl.chain.first': 'First-order (L1)',
+    'rl.chain.second': 'Second-order (L2)',
+    // Opportunity card
+    'rl.opp.why': 'Why this company?',
+    'rl.opp.metrics': 'Metrics to monitor',
+    'rl.opp.openAnalysis': 'Open company analysis',
+    // Loading steps
+    'rl.loading.step1': 'Extracting the economic event…',
+    'rl.loading.step2': 'Mapping the ripple chain…',
+    'rl.loading.step3': 'Scoring connected opportunities…',
 
     // Products hub - Fundamental Analysis card
     'product.fa.title': 'Automated Fundamental Analysis',
@@ -421,6 +479,64 @@ const dict: Dictionary = {
     // Nav additions
     'nav.ta': 'Tecnica',
     'nav.fa': 'Fondamentale',
+    'nav.rl': 'Ripple Lab',
+
+    // Products hub - Ripple Lab card
+    'product.rl.title': 'Ripple Lab',
+    'product.rl.desc': 'Inserisci una notizia finanziaria e ottieni un\'analisi AI dell\'evento economico, della catena di effetti, delle opportunità collegate e dei segnali da monitorare.',
+    'product.rl.action': 'Apri Strumento',
+
+    // Ripple Lab page
+    'rl.input.title': 'Ripple Lab',
+    'rl.input.subtitle': 'Inserisci una notizia finanziaria. Il motore identifica l\'evento economico, mappa la catena ripple e individua le aziende collegate da monitorare.',
+    'rl.field.headline': 'Titolo',
+    'rl.field.headline.placeholder': 'es. NVIDIA riporta ricavi data center superiori alle attese...',
+    'rl.field.body': 'Corpo della notizia (opzionale)',
+    'rl.field.body.placeholder': 'Incolla il testo completo o un riepilogo per un\'analisi più precisa...',
+    'rl.field.source': 'Fonte',
+    'rl.field.date': 'Data',
+    'rl.field.url': 'URL',
+    'rl.field.tickers': 'Ticker principali (opzionale)',
+    'rl.analyze': 'Analizza Ripple',
+    'rl.analyzing': 'Analisi in corso…',
+    'rl.example': 'Carica esempio',
+    'rl.newAnalysis': 'Nuova analisi',
+    'rl.analysisReady': 'Analisi completata',
+    'rl.error': 'Analisi fallita. Riprova.',
+    'rl.disclaimer': 'Solo a scopo informativo ed educativo. Non costituisce consulenza finanziaria.',
+    'rl.none': 'Nessuno identificato.',
+    // Sections
+    'rl.section.whatHappened': 'Cosa è successo',
+    'rl.section.whyMatters': 'Perché è importante',
+    'rl.section.drivers': 'Driver economici',
+    'rl.section.rippleChain': 'Catena ripple',
+    'rl.section.opportunities': 'Top Ripple Opportunities',
+    'rl.section.opportunities.sub': 'Aziende ordinate per Ripple Opportunity Score',
+    'rl.section.catalysts': 'Segnali di conferma',
+    'rl.section.risks': 'Rischi principali',
+    'rl.section.confirmInvalidate': 'Confermare o invalidare',
+    'rl.section.sources': 'Fonti e metodologia',
+    // Labels
+    'rl.label.fact': 'Fatto',
+    'rl.label.inference': 'Inferenza',
+    'rl.label.horizon': 'Orizzonte temporale',
+    'rl.label.confidence': 'Affidabilità',
+    'rl.label.confirm': 'Cosa confermerebbe la tesi',
+    'rl.label.invalidate': 'Cosa invaliderebbe la tesi',
+    'rl.label.claimsAndEvidence': 'Affermazioni e prove',
+    'rl.label.methodology': 'Metodologia',
+    // Chain columns
+    'rl.chain.direct': 'Diretto (L0)',
+    'rl.chain.first': 'Primo ordine (L1)',
+    'rl.chain.second': 'Secondo ordine (L2)',
+    // Opportunity card
+    'rl.opp.why': 'Perché questa azienda?',
+    'rl.opp.metrics': 'Metriche da monitorare',
+    'rl.opp.openAnalysis': 'Apri analisi aziendale',
+    // Loading steps
+    'rl.loading.step1': 'Estrazione dell\'evento economico…',
+    'rl.loading.step2': 'Mappatura della catena ripple…',
+    'rl.loading.step3': 'Scoring delle opportunità collegate…',
 
     // Products hub - Fundamental Analysis card
     'product.fa.title': 'Analisi Fondamentale Automatica',

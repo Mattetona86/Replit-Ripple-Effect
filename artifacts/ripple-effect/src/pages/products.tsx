@@ -1,8 +1,7 @@
 import { Layout } from '@/components/layout';
 import { useTranslation } from '@/lib/i18n';
 import { Link } from 'wouter';
-import { LineChart, BarChart2, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { LineChart, BarChart2, ArrowRight, Zap } from 'lucide-react';
 
 export default function Products() {
   const { t } = useTranslation();
@@ -56,6 +55,29 @@ export default function Products() {
                 </p>
                 <div className="mt-8 pt-4 border-t border-border/50 flex items-center justify-between text-sm font-semibold text-primary">
                   <span>{t('product.fa.action')}</span>
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Card 3: Ripple Lab */}
+          <Link href="/products/ripple-lab" className="group">
+            <div className="h-full border border-border bg-card rounded-2xl overflow-hidden hover-elevate transition-all duration-300 hover:border-primary/30 flex flex-col">
+              <div className="p-8 pb-6 bg-gradient-to-br from-violet-500/5 to-transparent border-b border-border/50">
+                <div className="w-14 h-14 bg-background border border-border rounded-xl shadow-sm flex items-center justify-center text-violet-600 mb-6 group-hover:scale-110 transition-transform">
+                  <Zap size={28} />
+                </div>
+                <h2 className="text-2xl font-bold group-hover:text-primary transition-colors">
+                  {t('product.rl.title')}
+                </h2>
+              </div>
+              <div className="p-6 flex-1 flex flex-col">
+                <p className="text-muted-foreground leading-relaxed flex-1">
+                  {t('product.rl.desc')}
+                </p>
+                <div className="mt-8 pt-4 border-t border-border/50 flex items-center justify-between text-sm font-semibold text-primary">
+                  <span>{t('product.rl.action')}</span>
                   <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
