@@ -277,6 +277,11 @@ Produce a complete Ripple analysis using the submit_ripple_analysis tool.`;
 
     const raw = toolUse.input as Omit<RippleAnalysis, 'news'>;
 
+    logger.info({
+      opportunitiesRaw: raw.opportunities,
+      rippleChainCompanies: (raw.rippleChain ?? []).filter(n => n.type === 'company').map(n => n.ticker),
+    }, 'Ripple LLM raw output');
+
     // Server-side score recomputation for accuracy
     const opportunities = (raw.opportunities ?? []).map(opp => ({
       ...opp,
