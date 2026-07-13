@@ -232,7 +232,7 @@ RELIABILITY RULES (CRITICAL):
 - Classify every claim as FACT (confirmed from the source), INFERENCE (logical economic conclusion), or SPECULATION (limited evidence).
 - Do NOT mark a relationship as "confirmed" if it derives only from AI reasoning.
 - Do not invent percentages of exposure. Use null when data is unavailable.
-- For opportunities, only include companies from the seed list. Do not invent tickers.
+- For opportunities: every company you place in rippleChain with type=company is a strong candidate — promote them to opportunities with scoring. You may also include other well-known publicly traded companies with a documented supply-chain or customer relationship. Do not invent fictional tickers with no basis in the news or knowledge base.
 
 SCORING RUBRICS:
 - Exposure (0-100): % of business exposed to the economic driver, supply chain role, geography
