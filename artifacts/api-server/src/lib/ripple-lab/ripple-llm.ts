@@ -132,7 +132,7 @@ const rippleTool: Anthropic.Tool = {
             evidence: { type: 'array', items: { type: 'string' }, description: 'Max 2 items. Fact or inference.' },
           },
         },
-        description: 'Max 5 opportunities ordered by rippleOpportunityScore descending. Only companies from the seed list or those with confirmed relationships. Do not invent companies.',
+        description: 'Max 5 opportunities ordered by rippleOpportunityScore descending. IMPORTANT: every company you listed in rippleChain with type=company is a candidate for opportunities — include them here with scoring. You may also include other well-known, publicly traded companies with a clearly documented supply chain or customer relationship to the event. Do not invent fictional companies or speculative tickers with no basis in the news or knowledge base.',
       },
       risks: {
         type: 'array',
@@ -211,8 +211,8 @@ function computeRippleScore(opp: Partial<RippleOpportunity>): number {
     totalWeight += 0.10;
   }
 
-  // Normalize to 0-100
-  return Math.round((score / totalWeight) * (1 / (1 - (1 - totalWeight))));
+  // Normalize to 0-100: divide raw weighted sum by the sum of active weights
+  return Math.min(100, Math.round(score / totalWeight));
 }
 
 export async function generateRippleAnalysis(
