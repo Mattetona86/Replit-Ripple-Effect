@@ -1,0 +1,378 @@
+Voglio riprogettare la sezione “Catena Ripple” perché l’attuale layout a colonne L0, L1 e L2 è difficile da leggere, occupa troppo spazio e non permette di confrontare rapidamente le aziende coinvolte.
+
+Non eliminare la logica causale L0 → L1 → L2, ma separare:
+
+1. la spiegazione del meccanismo economico;
+2. il ranking delle aziende interessate.
+
+L’obiettivo principale della sezione è aiutare l’utente a rispondere:
+
+- Quali aziende sono coinvolte?
+- Quali beneficiano e quali sono penalizzate?
+- Quanto è diretto il collegamento?
+- Quanto è credibile?
+- Qual è la migliore opportunità risultante dal ripple effect?
+
+--------------------------------------------------
+1. NUOVA STRUTTURA
+--------------------------------------------------
+
+Sostituire la catena a grandi card verticali con una sezione composta da tre viste selezionabili:
+
+- Opportunities
+- Chain
+- Risks
+
+La vista di default deve essere “Opportunities”.
+
+Header della sezione:
+
+Ripple Effect
+
+Mostrare:
+
+- numero totale di aziende identificate;
+- numero positive;
+- numero mixed;
+- numero negative;
+- confidence complessiva;
+- data dell’ultimo aggiornamento.
+
+Esempio:
+
+6 companies identified · 3 positive · 2 mixed · 1 negative
+Overall confidence: 62%
+
+--------------------------------------------------
+2. VISTA OPPORTUNITIES
+--------------------------------------------------
+
+Creare una tabella ordinabile con una riga per ogni società.
+
+Colonne principali:
+
+1. Rank
+2. Company
+3. Ripple level
+4. Direction
+5. Economic link
+6. Time horizon
+7. Relationship confidence
+8. Fundamental fit
+9. Ripple Opportunity Score
+
+Formato della colonna Company:
+
+Company name
+Ticker · Sector
+
+Formato Economic Link:
+
+Una frase breve, massimo 12 parole.
+
+Esempi:
+
+- Custom ASIC supplier for hyperscalers
+- HBM memory exposure
+- AI data-center cooling
+- GPU manufacturing partner
+
+Ripple level:
+
+- L0 Primary
+- L1 Direct
+- L2 Indirect
+
+Direction:
+
+- Positive
+- Mixed
+- Negative
+
+Relationship confidence:
+
+- percentuale;
+- badge Confirmed, Supported o Plausible.
+
+Fundamental fit:
+
+- Strong
+- Good
+- Neutral
+- Weak
+- Unavailable
+
+Ripple Opportunity Score:
+
+- punteggio da 0 a 100;
+- barra compatta;
+- deve essere la colonna di ordinamento predefinita.
+
+La tabella deve essere ordinata di default dal Ripple Opportunity Score più alto al più basso.
+
+Non ordinare per confidence.
+
+--------------------------------------------------
+3. RIPPLE OPPORTUNITY SCORE
+--------------------------------------------------
+
+Distinguere chiaramente tre concetti:
+
+- Direction: direzione dell’impatto;
+- Relationship Confidence: affidabilità del collegamento;
+- Ripple Opportunity Score: attrattività complessiva dell’opportunità.
+
+Formula iniziale:
+
+Ripple Opportunity Score =
+30% Exposure
++ 20% Causality
++ 10% Timing
++ 15% Fundamental Quality
++ 10% Valuation Attractiveness
++ 10% Confirmation
++ 5% Risk Adjustment
+
+Dove:
+
+Risk Adjustment = 100 - Risk Score
+
+Mostrare il breakdown del punteggio nel drawer dei dettagli.
+
+Non assegnare un Ripple Opportunity Score alle entità che sono soltanto economic drivers e non società quotate.
+
+--------------------------------------------------
+4. SEPARARE DRIVER E AZIENDE
+--------------------------------------------------
+
+Non mostrare economic driver e company come righe equivalenti nella stessa tabella.
+
+Creare sopra la tabella un blocco compatto:
+
+“Economic transmission”
+
+Mostrare il percorso causale in massimo 3–5 passaggi.
+
+Esempio:
+
+NVDA multiple compression
+→ hyperscaler capex concerns
+→ potential shift toward custom ASICs
+→ impact on GPU, memory and infrastructure suppliers
+
+Ogni driver deve mostrare:
+
+- titolo;
+- direzione;
+- livello;
+- breve spiegazione;
+- confidence.
+
+Questo blocco deve essere compatto e orizzontale.
+
+--------------------------------------------------
+5. VISTA CHAIN
+--------------------------------------------------
+
+Mantenere una visualizzazione causale alternativa, ma renderla più compatta.
+
+Usare un tree diagram o flow diagram:
+
+NEWS
+→ ECONOMIC DRIVERS
+→ L1 COMPANIES
+→ L2 COMPANIES
+
+Non usare grandi card verticali.
+
+Ogni nodo deve mostrare soltanto:
+
+- nome;
+- ticker, se è una società;
+- direzione;
+- confidence.
+
+Mostrare i dettagli al click o hover.
+
+Limitare inizialmente la visualizzazione a:
+
+- massimo 3 driver;
+- massimo 5 aziende L1;
+- massimo 5 aziende L2.
+
+Aggiungere “Show more” per ulteriori nodi.
+
+Usare linee o frecce per mostrare il collegamento esatto tra un driver e una società.
+
+Lo spessore della linea deve rappresentare la forza della relazione.
+
+Lo stile della linea può rappresentare:
+
+- continua: Confirmed;
+- tratteggiata: Supported;
+- puntinata: Plausible.
+
+--------------------------------------------------
+6. VISTA RISKS
+--------------------------------------------------
+
+Creare una tabella separata per:
+
+- aziende potenzialmente penalizzate;
+- aziende con impatto mixed;
+- aziende la cui opportunità è fragile.
+
+Colonne:
+
+- Company;
+- Negative mechanism;
+- Horizon;
+- Confidence;
+- Main risk;
+- Invalidation signal.
+
+Non duplicare le stesse società tra Opportunities e Risks senza spiegare la ragione.
+
+Una società con impatto mixed può apparire in entrambe le viste, ma deve mostrare:
+
+- positive mechanism;
+- negative mechanism;
+- net assessment.
+
+--------------------------------------------------
+7. DETTAGLIO DELLA RIGA
+--------------------------------------------------
+
+Al click su una società aprire un drawer laterale.
+
+Mostrare:
+
+- company name e ticker;
+- Ripple Opportunity Score;
+- relationship confidence;
+- direction;
+- ripple level;
+- economic mechanism;
+- why this company is connected;
+- expected time horizon;
+- affected financial metrics;
+- fundamental quality;
+- valuation assessment;
+- confirmation signals;
+- invalidation signals;
+- relevant sources;
+- link to Fundamental Analysis;
+- link to Technical Analysis;
+- Add to Watchlist.
+
+Mostrare anche il percorso:
+
+News
+→ Economic driver
+→ Industry effect
+→ Company
+
+--------------------------------------------------
+8. LOOK AND FEEL
+--------------------------------------------------
+
+Mantenere lo stile attuale della piattaforma:
+
+- background chiaro;
+- card bianche;
+- bordi sottili;
+- tipografia esistente;
+- angoli arrotondati.
+
+Ridurre però:
+
+- altezza delle card;
+- spazi vuoti;
+- numero di badge;
+- ripetizione di colori;
+- testi troncati.
+
+La tabella deve avere righe alte circa 64–76 px.
+
+Usare colori con moderazione:
+
+- verde: impatto positivo;
+- arancione: mixed;
+- rosso: negativo;
+- blu: informativo;
+- grigio: indisponibile.
+
+Non usare contemporaneamente pallino, testo colorato e badge per rappresentare la stessa informazione.
+
+--------------------------------------------------
+9. MOBILE
+--------------------------------------------------
+
+Su mobile sostituire la tabella con card compatte.
+
+Ogni card deve mostrare:
+
+- rank;
+- company;
+- Ripple Score;
+- direction;
+- economic link;
+- confidence;
+- horizon.
+
+I dettagli devono aprirsi in un bottom sheet.
+
+La vista Chain su mobile può usare scroll orizzontale.
+
+--------------------------------------------------
+10. STATI DI DATI
+--------------------------------------------------
+
+Gestire:
+
+- nessuna società identificata;
+- soltanto driver economici;
+- confidence insufficiente;
+- fondamentali indisponibili;
+- valuation indisponibile;
+- relazioni speculative escluse;
+- score incompleto.
+
+Non mostrare uno score completo se mancano fondamentali e valutazione.
+
+In quel caso mostrare:
+
+“Partial Ripple Score”
+
+e indicare le componenti mancanti.
+
+--------------------------------------------------
+11. ESEMPIO DI OUTPUT
+--------------------------------------------------
+
+La tabella per l’attuale articolo NVIDIA dovrebbe essere simile a:
+
+1. Broadcom | L1 Direct | Positive | Custom ASICs for hyperscalers | 6–12m | 78% | Strong | 78
+2. AMD | L1 Direct | Positive | Alternative AI accelerators | 2–12m | 72% | Good | 75
+3. Micron | L1 Direct | Positive | HBM memory demand | 1–4 quarters | 82% | Improving | 74
+4. TSMC | L1 Direct | Mixed | Manufactures GPUs and ASICs | 2–12m | 82% | Strong | 70
+5. Vertiv | L2 Indirect | Mixed | Data-center power and cooling | 6–18m | 65% | Strong | 61
+6. Arista Networks | L2 Indirect | Mixed | AI cluster networking | 6–12m | 62% | Strong | 59
+
+I valori sono soltanto un esempio di layout. Non usare questi punteggi come mock data nella produzione.
+
+--------------------------------------------------
+12. CRITERI DI COMPLETAMENTO
+--------------------------------------------------
+
+La modifica è completa quando:
+
+- la vista principale permette di confrontare tutte le aziende senza scroll verticale eccessivo;
+- economic driver e company sono separati;
+- il Ripple Opportunity Score è immediatamente visibile;
+- confidence e score non vengono confusi;
+- la causal chain resta accessibile in una vista alternativa;
+- ogni azienda apre un drawer con il percorso completo;
+- non ci sono testi importanti troncati senza possibilità di espansione;
+- mobile e desktop sono leggibili;
+- nessuna relazione speculativa viene presentata come confermata.

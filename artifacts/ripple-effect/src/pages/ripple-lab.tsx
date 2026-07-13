@@ -6,8 +6,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useLocation } from 'wouter';
 import { NewsInputForm, type NewsInput } from '@/components/ripple-lab/NewsInputForm';
 import { EventSummary } from '@/components/ripple-lab/EventSummary';
-import { RippleChain } from '@/components/ripple-lab/RippleChain';
-import { OpportunityCard } from '@/components/ripple-lab/OpportunityCard';
+import { RippleEffect } from '@/components/ripple-lab/RippleEffect';
 import { CatalystRiskPanel } from '@/components/ripple-lab/CatalystRiskPanel';
 import { ConfirmationPanel } from '@/components/ripple-lab/ConfirmationPanel';
 import { SourceEvidenceList } from '@/components/ripple-lab/SourceEvidenceList';
@@ -132,24 +131,9 @@ export default function RippleLab() {
             {/* A. News header + B. What happened + C. Why it matters + drivers */}
             <EventSummary analysis={result} />
 
-            {/* D. Ripple Chain */}
-            {result.rippleChain.length > 0 && (
-              <RippleChain analysis={result} />
-            )}
-
-            {/* E. Top Ripple Opportunities */}
-            {result.opportunities.length > 0 && (
-              <div>
-                <div className="flex items-baseline gap-3 mb-4">
-                  <h2 className="text-base font-semibold">{t('rl.section.opportunities')}</h2>
-                  <p className="text-xs text-muted-foreground">{t('rl.section.opportunities.sub')}</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {result.opportunities.map((opp, i) => (
-                    <OpportunityCard key={opp.ticker} opp={opp} rank={i + 1} />
-                  ))}
-                </div>
-              </div>
+            {/* D + E. Ripple Effect (chain + opportunities + risks, tabbed) */}
+            {(result.rippleChain.length > 0 || result.opportunities.length > 0) && (
+              <RippleEffect analysis={result} />
             )}
 
             {/* F. Catalysts and Risks */}
