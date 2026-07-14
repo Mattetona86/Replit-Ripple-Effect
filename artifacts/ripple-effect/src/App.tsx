@@ -203,7 +203,10 @@ function ClerkProviderWithRoutes() {
           <Route path="/products/ripple-lab">
             <ProtectedRoute component={RippleLab} />
           </Route>
-          
+          <Route path="/products/ripple-lab/:id">
+            <ProtectedRoute component={RippleLab} />
+          </Route>
+
           <Route component={NotFound} />
         </Switch>
       </QueryClientProvider>

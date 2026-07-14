@@ -6,12 +6,15 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '../logger';
-import { formatKnowledgeBaseForLLM } from './knowledge-base';
-import type {
-  RippleNewsInput,
-  RippleAnalysis,
-  RippleOpportunity,
-} from './types';
+import { formatKnowledgeBaseForLLM, getCompanyByTicker } from './knowledge-base';
+import type { RippleNewsInput, RippleAnalysis } from './types';
+import {
+  RippleAnalysisResult,
+  RippleAnalysisResultFromLLM,
+  type RippleCompanyFromLLM,
+  type DataConfidence,
+  type ConfidenceLevel,
+} from '@workspace/api-zod';
 
 let client: Anthropic | undefined;
 function getClient(): Anthropic {
@@ -189,14 +192,14 @@ const rippleTool: Anthropic.Tool = {
   },
 };
 
-function computeRippleScore(opp: Partial<RippleOpportunity>): number {
-  const exposure = opp.exposureScore ?? 0;
-  const causality = opp.causalityScore ?? 0;
-  const timing = opp.timingScore ?? 0;
+export function computeRippleScore(opp: RippleCompanyFromLLM): number {
+  const exposure = opp.exposureScore;
+  const causality = opp.causalityScore;
+  const timing = opp.timingScore;
   const fundamental = opp.fundamentalScore;
   const valuation = opp.valuationScore;
-  const confirmation = opp.confirmationScore ?? 0;
-  const risk = opp.riskScore ?? 50;
+  const confirmation = opp.confirmationScore;
+  const risk = opp.riskScore;
 
   // Redistribute weights if fundamental/valuation are null
   let totalWeight = 0.30 + 0.20 + 0.10 + 0.10 + 0.05;
@@ -213,6 +216,58 @@ function computeRippleScore(opp: Partial<RippleOpportunity>): number {
 
   // Normalize to 0-100: divide raw weighted sum by the sum of active weights
   return Math.min(100, Math.round(score / totalWeight));
+}
+
+// Shared "ratio of available data -> confidence tier" bucketing, used below
+// for the two fields that can legitimately have no denominator at all
+// (no tickers to check, no companies to score). Not unified with
+// fundamental-calculator.ts's similarly-shaped coveragePct/confidenceLevel
+// logic — that one buckets fixed, domain-specific absolute counts (years of
+// filings, months of price history), a different metric with different
+// thresholds, not the same mechanism.
+function ratioToTier(count: number, total: number): ConfidenceLevel | 'unavailable' {
+  if (total === 0) return 'unavailable';
+  if (count / total >= 0.5) return 'high';
+  return count > 0 ? 'medium' : 'low';
+}
+
+// Derived entirely from data already in the response — no extra LLM call.
+export function computeDataConfidence(
+  input: RippleNewsInput,
+  relationships: RippleAnalysisResultFromLLM['rippleChain'],
+  companies: Array<RippleCompanyFromLLM & { rippleOpportunityScore: number }>,
+  classificationConfidence: number,
+): DataConfidence {
+  const newsSourceQuality: ConfidenceLevel =
+    input.source && input.url ? 'high' : input.source || input.url ? 'medium' : 'low';
+
+  const candidateTickers = [...(input.primaryTickers ?? []), ...companies.map(c => c.ticker)];
+  const kbHits = candidateTickers.filter(t => getCompanyByTicker(t) !== undefined).length;
+  const knowledgeBaseCoverage = ratioToTier(kbHits, candidateTickers.length);
+
+  // No denominator here means "no relationships found," which is low
+  // confidence, not "we couldn't check" — so this one stays its own branch
+  // rather than sharing ratioToTier's 'unavailable' zero-case.
+  const solidRelationships = relationships.filter(
+    r => r.relationship === 'confirmed' || r.relationship === 'strongly_supported',
+  ).length;
+  const relationshipEvidence: ConfidenceLevel =
+    relationships.length === 0 ? 'low'
+    : solidRelationships / relationships.length >= 0.5 ? 'high'
+    : solidRelationships > 0 ? 'medium' : 'low';
+
+  const scoredCompanies = companies.filter(
+    c => c.fundamentalScore !== null || c.valuationScore !== null,
+  ).length;
+  const fundamentalDataAvailability = ratioToTier(scoredCompanies, companies.length);
+
+  return {
+    newsSourceQuality,
+    knowledgeBaseCoverage,
+    relationshipEvidence,
+    fundamentalDataAvailability,
+    overallConfidence: classificationConfidence,
+  };
 }
 
 export async function generateRippleAnalysis(
@@ -275,20 +330,47 @@ Produce a complete Ripple analysis using the submit_ripple_analysis tool.`;
     );
     if (!toolUse) throw new Error('No tool_use block in LLM response');
 
-    const raw = toolUse.input as Omit<RippleAnalysis, 'news'>;
+    // Anthropic's tool use is best-effort, not a guaranteed-conformant
+    // structured output — validate before trusting any of it.
+    const validated = RippleAnalysisResultFromLLM.safeParse(toolUse.input);
+    if (!validated.success) {
+      logger.error({
+        issues: validated.error.issues,
+        rawInput: toolUse.input,
+        headline: input.headline.slice(0, 60),
+      }, 'Anthropic Ripple output failed schema validation');
+      throw new Error('Ripple Lab received a malformed analysis from the AI model');
+    }
+    const raw = validated.data;
 
     logger.info({
       opportunitiesRaw: raw.opportunities,
-      rippleChainCompanies: (raw.rippleChain ?? []).filter(n => n.type === 'company').map(n => n.ticker),
+      rippleChainCompanies: raw.rippleChain.filter(n => n.type === 'company').map(n => n.ticker),
     }, 'Ripple LLM raw output');
 
-    // Server-side score recomputation for accuracy
-    const opportunities = (raw.opportunities ?? []).map(opp => ({
+    // Server-side score recomputation for accuracy — the LLM's own
+    // rippleOpportunityScore, if present, is discarded and never trusted.
+    const opportunities = raw.opportunities.map(opp => ({
       ...opp,
       rippleOpportunityScore: computeRippleScore(opp),
     })).sort((a, b) => b.rippleOpportunityScore - a.rippleOpportunityScore).slice(0, 5);
 
-    const analysis: RippleAnalysis = {
+    const relationships = raw.rippleChain.filter(node => node.relationship !== 'speculative');
+
+    // classification.themes is allowed up to 11 in the raw/LLM-side schema
+    // (matching the full theme taxonomy, see llm-raw.ts) but the final
+    // contract caps it at 6 for display — truncate here rather than let the
+    // final self-check below reject an otherwise-valid analysis.
+    const classification = { ...raw.classification, themes: raw.classification.themes.slice(0, 6) };
+
+    const dataConfidence = computeDataConfidence(
+      input,
+      relationships,
+      opportunities,
+      classification.confidence,
+    );
+
+    const analysis: RippleAnalysisResult = {
       news: {
         headline: input.headline,
         source: input.source ?? '',
@@ -297,20 +379,21 @@ Produce a complete Ripple analysis using the submit_ripple_analysis tool.`;
         primaryTickers: input.primaryTickers ?? [],
       },
       event: raw.event,
-      classification: raw.classification,
-      economicDrivers: raw.economicDrivers ?? [],
-      industries: raw.industries ?? [],
-      rippleChain: (raw.rippleChain ?? []).filter(
-        node => node.relationship !== 'speculative',
-      ),
+      classification,
+      economicDrivers: raw.economicDrivers,
+      industries: raw.industries,
+      rippleChain: relationships,
       opportunities,
-      risks: raw.risks ?? [],
-      confirmationSignals: raw.confirmationSignals ?? [],
-      invalidationSignals: raw.invalidationSignals ?? [],
-      sources: raw.sources ?? [],
+      risks: raw.risks,
+      confirmationSignals: raw.confirmationSignals,
+      invalidationSignals: raw.invalidationSignals,
+      sources: raw.sources,
+      dataConfidence,
     };
 
-    return analysis;
+    // Final self-check: never return a shape that doesn't match the
+    // contract, even if a bug upstream produced one.
+    return RippleAnalysisResult.parse(analysis);
   } catch (error) {
     logger.error({ err: error, headline: input.headline }, 'Failed to generate Ripple analysis');
     throw error;

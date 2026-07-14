@@ -153,6 +153,57 @@ paths:
         "204":
           description: Deleted
 
+  # Documents the contract now enforced in code by @workspace/api-zod's
+  # lib/api-zod/src/ripple-lab/* (hand-written Zod schemas, not Orval-generated
+  # ones). IMPORTANT: before running `pnpm --filter @workspace/api-spec run
+  # codegen`, be aware Orval will now ALSO generate zod/react-query code for
+  # this path from the schemas below into lib/api-zod/src/generated/ and
+  # lib/api-client-react/src/generated/, which will collide by name with the
+  # hand-written schemas re-exported from lib/api-zod/src/ripple-lab/ (both
+  # exported via `export *` from lib/api-zod/src/index.ts). Resolve that
+  # collision — e.g. delete the hand-written ripple-lab/ folder in favor of
+  # the generated one, or rename one side — before relying on the generated
+  # client. Not yet verified in this environment (no Node/pnpm available).
+  /market/ripple-lab/analyze:
+    post:
+      operationId: analyzeRippleLab
+      tags: [market]
+      summary: Analyze a news item for direct and second-order ("ripple") effects on connected companies. Reuses a stored analysis for the same article (headline+tickers+language) if one exists and is fresh, instead of calling Anthropic again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsAnalysisRequest"
+      responses:
+        "200":
+          description: The persisted Ripple Lab analysis record for the submitted news item (new or reused)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RippleAnalysisRecord"
+
+  /market/ripple-lab/{id}:
+    get:
+      operationId: getRippleAnalysis
+      tags: [market]
+      summary: Reload a previously generated Ripple Lab analysis by id, without calling Anthropic
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The stored Ripple Lab analysis record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RippleAnalysisRecord"
+        "404":
+          description: No analysis found for this id
+
 components:
   schemas:
     HealthStatus:
@@ -1154,4 +1205,465 @@ components:
         snapshot:
           $ref: "#/components/schemas/StockAnalysis"
         createdAt:
+          type: string
+
+    # ------------------------------------------------------------------
+    # Ripple Lab (POST /market/ripple-lab/analyze). See the note above the
+    # path definition: these schemas mirror lib/api-zod/src/ripple-lab/
+    # hand-written Zod (source of truth); not yet run through Orval codegen.
+    # ------------------------------------------------------------------
+
+    Score:
+      type: number
+      minimum: 0
+      maximum: 100
+
+    Direction:
+      type: string
+      enum: [very_positive, positive, neutral, negative, very_negative, mixed]
+
+    TimeHorizon:
+      type: string
+      enum: [immediate, short_term, medium_term, long_term]
+
+    ImportanceCategory:
+      type: string
+      enum: [STRUCTURAL_SHIFT, THEME_BOOSTER, TACTICAL_CATALYST, NOISE]
+
+    RelationshipConfidence:
+      type: string
+      enum: [confirmed, strongly_supported, plausible, speculative]
+
+    RippleEntityKind:
+      type: string
+      enum: [company, industry, theme, economic_driver]
+
+    EventType:
+      type: string
+      enum:
+        [
+          earnings,
+          guidance,
+          capex,
+          major_contract,
+          product_launch,
+          supply_constraint,
+          production_expansion,
+          pricing,
+          demand_change,
+          acquisition,
+          partnership,
+          regulation,
+          government_spending,
+          tariffs,
+          sanctions,
+          export_controls,
+          litigation,
+          management_change,
+          financing,
+          interest_rates,
+          inflation,
+          commodity_price,
+          geopolitical_event,
+          natural_disaster,
+          analyst_revision,
+          technology_breakthrough,
+          other,
+        ]
+
+    EvidenceTier:
+      type: string
+      enum: [fact, inference, speculation]
+
+    Magnitude:
+      type: string
+      enum: [high, medium, low]
+
+    Severity:
+      type: string
+      enum: [high, medium, low]
+
+    ConfidenceLevel:
+      type: string
+      enum: [high, medium, low]
+
+    NewsAnalysisRequest:
+      type: object
+      required: [headline]
+      properties:
+        headline:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        body:
+          type: string
+          maxLength: 20000
+        source:
+          type: string
+          maxLength: 200
+        url:
+          type: string
+          maxLength: 2000
+        publishedAt:
+          type: string
+          maxLength: 40
+        primaryTickers:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 15
+        language:
+          $ref: "#/components/schemas/Language"
+
+    NewsEvent:
+      type: object
+      required:
+        [eventTitle, eventSummary, eventType, factualStatement, interpretation, uncertainties]
+      properties:
+        eventTitle:
+          type: string
+        eventSummary:
+          type: string
+        eventType:
+          $ref: "#/components/schemas/EventType"
+        factualStatement:
+          type: string
+        interpretation:
+          type: string
+        uncertainties:
+          type: array
+          maxItems: 3
+          items:
+            type: string
+
+    EconomicDriver:
+      type: object
+      required: [driver, description, magnitude]
+      properties:
+        driver:
+          type: string
+        description:
+          type: string
+        magnitude:
+          $ref: "#/components/schemas/Magnitude"
+
+    IndustryExposure:
+      type: object
+      required: [name, direction, level, mechanism, confidence]
+      properties:
+        name:
+          type: string
+        direction:
+          $ref: "#/components/schemas/Direction"
+        level:
+          type: integer
+          enum: [0, 1, 2]
+        mechanism:
+          type: string
+        confidence:
+          $ref: "#/components/schemas/Score"
+
+    RippleChainNode:
+      type: object
+      required:
+        [id, type, label, ticker, level, direction, relationship, mechanism, timeHorizon, confidence, evidence]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: "#/components/schemas/RippleEntityKind"
+        label:
+          type: string
+        ticker:
+          type: ["string", "null"]
+        level:
+          type: integer
+          enum: [0, 1, 2]
+        direction:
+          $ref: "#/components/schemas/Direction"
+        relationship:
+          $ref: "#/components/schemas/RelationshipConfidence"
+        mechanism:
+          type: string
+        timeHorizon:
+          $ref: "#/components/schemas/TimeHorizon"
+        confidence:
+          $ref: "#/components/schemas/Score"
+        evidence:
+          type: array
+          maxItems: 2
+          items:
+            type: string
+
+    RippleScoreBreakdown:
+      type: object
+      required:
+        [
+          exposureScore,
+          causalityScore,
+          timingScore,
+          fundamentalScore,
+          valuationScore,
+          confirmationScore,
+          riskScore,
+          rippleOpportunityScore,
+        ]
+      properties:
+        exposureScore:
+          $ref: "#/components/schemas/Score"
+        causalityScore:
+          $ref: "#/components/schemas/Score"
+        timingScore:
+          $ref: "#/components/schemas/Score"
+        fundamentalScore:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 100
+        valuationScore:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 100
+        confirmationScore:
+          $ref: "#/components/schemas/Score"
+        riskScore:
+          $ref: "#/components/schemas/Score"
+        rippleOpportunityScore:
+          $ref: "#/components/schemas/Score"
+
+    # Wire shape stays flat (score fields merged in, not nested) so the
+    # current frontend keeps working unmodified — see ripple-company.ts.
+    RippleCompany:
+      allOf:
+        - $ref: "#/components/schemas/RippleScoreBreakdown"
+        - type: object
+          required:
+            [
+              companyName,
+              ticker,
+              relationshipType,
+              rippleLevel,
+              direction,
+              mechanism,
+              timeHorizon,
+              confidence,
+              whyItMatters,
+              metricsToMonitor,
+              mainRisk,
+              evidence,
+            ]
+          properties:
+            companyName:
+              type: string
+            ticker:
+              type: string
+            relationshipType:
+              type: string
+            rippleLevel:
+              type: integer
+              enum: [1, 2]
+            direction:
+              $ref: "#/components/schemas/Direction"
+            mechanism:
+              type: string
+            timeHorizon:
+              $ref: "#/components/schemas/TimeHorizon"
+            confidence:
+              $ref: "#/components/schemas/Score"
+            whyItMatters:
+              type: string
+            metricsToMonitor:
+              type: array
+              maxItems: 3
+              items:
+                type: string
+            mainRisk:
+              type: string
+            evidence:
+              type: array
+              maxItems: 2
+              items:
+                type: string
+
+    RippleRisk:
+      type: object
+      required: [title, description, severity]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+
+    SourceEvidence:
+      type: object
+      required: [type, claim, basis]
+      properties:
+        type:
+          $ref: "#/components/schemas/EvidenceTier"
+        claim:
+          type: string
+        basis:
+          type: string
+
+    # Only "fact"/"inference" allowed here (unlike SourceEvidence.type, which
+    # also allows "speculation") — an existing business rule, not an oversight.
+    ConfirmationSignal:
+      type: object
+      required: [signal, description, type]
+      properties:
+        signal:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [fact, inference]
+
+    InvalidationSignal:
+      type: object
+      required: [signal, description]
+      properties:
+        signal:
+          type: string
+        description:
+          type: string
+
+    # New, purely additive — not produced by the LLM; computed server-side
+    # from data already in the response. See computeDataConfidence in
+    # artifacts/api-server/src/lib/ripple-lab/ripple-llm.ts.
+    DataConfidence:
+      type: object
+      required:
+        [newsSourceQuality, knowledgeBaseCoverage, relationshipEvidence, fundamentalDataAvailability, overallConfidence]
+      properties:
+        newsSourceQuality:
+          $ref: "#/components/schemas/ConfidenceLevel"
+        knowledgeBaseCoverage:
+          type: string
+          enum: [high, medium, low, unavailable]
+        relationshipEvidence:
+          $ref: "#/components/schemas/ConfidenceLevel"
+        fundamentalDataAvailability:
+          type: string
+          enum: [high, medium, low, unavailable]
+        overallConfidence:
+          $ref: "#/components/schemas/Score"
+
+    RippleAnalysisResult:
+      type: object
+      required:
+        [
+          news,
+          event,
+          classification,
+          economicDrivers,
+          industries,
+          rippleChain,
+          opportunities,
+          risks,
+          confirmationSignals,
+          invalidationSignals,
+          sources,
+          dataConfidence,
+        ]
+      properties:
+        news:
+          type: object
+          required: [headline, source, publishedAt, url, primaryTickers]
+          properties:
+            headline:
+              type: string
+            source:
+              type: string
+            publishedAt:
+              type: string
+            url:
+              type: string
+            primaryTickers:
+              type: array
+              items:
+                type: string
+        event:
+          $ref: "#/components/schemas/NewsEvent"
+        classification:
+          type: object
+          required: [importance, direction, timeHorizon, confidence, themes]
+          properties:
+            importance:
+              $ref: "#/components/schemas/ImportanceCategory"
+            direction:
+              $ref: "#/components/schemas/Direction"
+            timeHorizon:
+              $ref: "#/components/schemas/TimeHorizon"
+            confidence:
+              $ref: "#/components/schemas/Score"
+            themes:
+              type: array
+              maxItems: 6
+              items:
+                type: string
+        economicDrivers:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/EconomicDriver"
+        industries:
+          type: array
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/IndustryExposure"
+        rippleChain:
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/RippleChainNode"
+        opportunities:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/RippleCompany"
+        risks:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/RippleRisk"
+        confirmationSignals:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/ConfirmationSignal"
+        invalidationSignals:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/InvalidationSignal"
+        sources:
+          type: array
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/SourceEvidence"
+        dataConfidence:
+          $ref: "#/components/schemas/DataConfidence"
+
+    # The persisted wrapper: what analyzeRippleLab and getRippleAnalysis both
+    # return. `schemaVersion` is a storage-format version, independent of the
+    # AI-output contract above, to allow future migrations of stored rows.
+    RippleAnalysisRecord:
+      type: object
+      required: [id, schemaVersion, article, analysis, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        schemaVersion:
+          type: integer
+        article:
+          $ref: "#/components/schemas/NewsAnalysisRequest"
+        analysis:
+          $ref: "#/components/schemas/RippleAnalysisResult"
+        createdAt:
+          type: string
+        updatedAt:
           type: string

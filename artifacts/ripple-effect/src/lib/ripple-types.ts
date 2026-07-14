@@ -120,4 +120,28 @@ export interface RippleAnalysis {
     claim: string;
     basis: string;
   }>;
+  dataConfidence: DataConfidence;
+}
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+
+// Purely additive on the wire (see .agents/memory/ripple-lab-architecture.md)
+// — computed server-side from data already in the analysis, not from Anthropic.
+export interface DataConfidence {
+  newsSourceQuality: ConfidenceLevel;
+  knowledgeBaseCoverage: ConfidenceLevel | 'unavailable';
+  relationshipEvidence: ConfidenceLevel;
+  fundamentalDataAvailability: ConfidenceLevel | 'unavailable';
+  overallConfidence: number;
+}
+
+// What POST /market/ripple-lab/analyze and GET /market/ripple-lab/:id both
+// return — a persisted record wrapping the analysis, not the bare analysis.
+export interface RippleAnalysisRecord {
+  id: number;
+  schemaVersion: number;
+  article: RippleNewsInput & { language: 'en' | 'it' };
+  analysis: RippleAnalysis;
+  createdAt: string;
+  updatedAt: string;
 }

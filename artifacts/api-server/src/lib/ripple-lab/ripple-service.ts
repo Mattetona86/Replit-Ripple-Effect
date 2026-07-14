@@ -1,41 +1,60 @@
 /**
  * Orchestrates Ripple Lab analysis.
- * LRU cache keyed by headline hash to avoid re-running expensive LLM calls.
+ * In-memory LRU cache (process-local, sub-second) sits in front of the
+ * Postgres-backed store (survives restarts, supports reload-by-id) which
+ * sits in front of the actual Anthropic call — each layer only runs if the
+ * one before it misses.
  */
 
 import { LRUCache } from 'lru-cache';
 import { logger } from '../logger';
 import { generateRippleAnalysis } from './ripple-llm';
+import {
+  makeDedupeKey,
+  findRecentRippleAnalysis,
+  saveRippleAnalysis,
+  getRippleAnalysisById,
+} from './ripple-analyses-store';
 import type { RippleNewsInput, RippleAnalysis } from './types';
+import type { RippleAnalysisRecord } from '@workspace/api-zod';
 
-// 2-hour TTL — analysis is expensive and the underlying news doesn't change
-const cache = new LRUCache<string, RippleAnalysis>({
+// 2-hour TTL — analysis is expensive and the underlying news doesn't change.
+// Same window as the DB freshness check in ripple-analyses-store.ts; this
+// cache just avoids a DB round-trip on top of avoiding an Anthropic call.
+const cache = new LRUCache<string, RippleAnalysisRecord>({
   max: 50,
   ttl: 2 * 60 * 60 * 1000,
 });
 
-function makeCacheKey(input: RippleNewsInput, language: string): string {
-  const normalized = `${input.headline}::${(input.primaryTickers ?? []).sort().join(',')}::${language}`;
-  // Simple hash: use first 120 chars to keep key manageable
-  return normalized.slice(0, 120).toLowerCase().replace(/\s+/g, '_');
-}
-
 export async function analyzeRipple(
+  userId: string,
   input: RippleNewsInput,
   language: 'en' | 'it' = 'en',
-): Promise<RippleAnalysis> {
-  const cacheKey = makeCacheKey(input, language);
+): Promise<RippleAnalysisRecord> {
+  const cacheKey = makeDedupeKey(input, language);
+
   const cached = cache.get(cacheKey);
   if (cached) {
-    logger.info({ headline: input.headline.slice(0, 60), language }, 'Ripple analysis cache hit');
+    logger.info({ headline: input.headline.slice(0, 60), language }, 'Ripple analysis in-memory cache hit');
     return cached;
   }
 
-  logger.info({ headline: input.headline.slice(0, 60), language }, 'Running Ripple Lab analysis');
+  const recent = await findRecentRippleAnalysis(input, language);
+  if (recent) {
+    logger.info({ headline: input.headline.slice(0, 60), language }, 'Ripple analysis reused from database');
+    cache.set(cacheKey, recent);
+    return recent;
+  }
 
+  logger.info({ headline: input.headline.slice(0, 60), language }, 'Running Ripple Lab analysis');
   const result = await generateRippleAnalysis(input, language);
-  cache.set(cacheKey, result);
-  return result;
+  const record = await saveRippleAnalysis(userId, input, language, result);
+  cache.set(cacheKey, record);
+  return record;
+}
+
+export async function getRippleAnalysis(id: number): Promise<RippleAnalysisRecord | null> {
+  return getRippleAnalysisById(id);
 }
 
 export type { RippleNewsInput, RippleAnalysis };

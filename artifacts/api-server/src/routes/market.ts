@@ -9,6 +9,9 @@ import {
   SaveAnalysisBody,
   SaveAnalysisResponse,
   DeleteSavedAnalysisParams,
+  NewsAnalysisRequest,
+  RippleAnalysisRecord,
+  GetRippleAnalysisParams,
 } from "@workspace/api-zod";
 import { searchTickers, getStockAnalysis } from "../lib/market/service";
 import { getFundamentalAnalysis } from "../lib/market/fundamental-service";
@@ -21,7 +24,7 @@ import {
   GetFundamentalAnalysisQueryParams,
   GetFundamentalAnalysisResponse,
 } from "@workspace/api-zod";
-import { analyzeRipple } from "../lib/ripple-lab/ripple-service";
+import { analyzeRipple, getRippleAnalysis } from "../lib/ripple-lab/ripple-service";
 
 const router: IRouter = Router();
 
@@ -92,32 +95,33 @@ router.delete("/market/saved/:id", async (req: Request, res: Response): Promise<
 });
 
 router.post("/market/ripple-lab/analyze", async (req: Request, res: Response): Promise<void> => {
-  const body = req.body as Record<string, unknown>;
+  const { userId } = getAuth(req);
+  const input = NewsAnalysisRequest.parse(req.body);
+  const primaryTickers = input.primaryTickers?.map((t) => t.toUpperCase()).slice(0, 10);
 
-  const headline = typeof body.headline === "string" ? body.headline.trim() : "";
-  if (!headline) {
-    res.status(400).json({ error: "headline is required" });
+  const record = await analyzeRipple(
+    userId!,
+    {
+      headline: input.headline,
+      body: input.body,
+      source: input.source,
+      url: input.url,
+      publishedAt: input.publishedAt,
+      primaryTickers,
+    },
+    input.language,
+  );
+  res.json(RippleAnalysisRecord.parse(record));
+});
+
+router.get("/market/ripple-lab/:id", async (req: Request, res: Response): Promise<void> => {
+  const params = GetRippleAnalysisParams.parse(req.params);
+  const record = await getRippleAnalysis(params.id);
+  if (!record) {
+    res.status(404).json({ message: "Analysis not found" });
     return;
   }
-
-  const language = body.language === "it" ? "it" : "en";
-
-  const tickers = Array.isArray(body.primaryTickers)
-    ? (body.primaryTickers as unknown[]).filter((t): t is string => typeof t === "string").slice(0, 10)
-    : undefined;
-
-  const analysis = await analyzeRipple(
-    {
-      headline,
-      body: typeof body.body === "string" ? body.body || undefined : undefined,
-      source: typeof body.source === "string" ? body.source || undefined : undefined,
-      url: typeof body.url === "string" && body.url ? body.url : undefined,
-      publishedAt: typeof body.publishedAt === "string" ? body.publishedAt || undefined : undefined,
-      primaryTickers: tickers,
-    },
-    language,
-  );
-  res.json(analysis);
+  res.json(RippleAnalysisRecord.parse(record));
 });
 
 export default router;
