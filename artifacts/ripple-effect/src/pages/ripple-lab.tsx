@@ -12,7 +12,7 @@ import type { RippleAnalysisRecord, RippleNewsInput } from '@/lib/ripple-types';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, AlertCircle, RotateCcw, Clock } from 'lucide-react';
 
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 120_000;
 
 class RippleApiError extends Error {
   status: number;
