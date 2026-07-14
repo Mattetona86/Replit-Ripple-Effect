@@ -2,15 +2,17 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import path from "path";
 import { db } from "./index";
 
-// Deliberately NOT resolved relative to import.meta.url/__dirname: this
-// module gets bundled (esbuild `bundle: true`, no `external` entry for
-// @workspace/db) into a single artifacts/api-server/dist/index.mjs — at
-// runtime import.meta.url/__dirname there point at the dist/ bundle, not at
-// this file's original location, so a path relative to them would resolve
-// to the wrong directory. process.cwd() is safe because the production run
-// command (see artifacts/api-server/.replit-artifact/artifact.toml) invokes
-// `node artifacts/api-server/dist/index.mjs` with the repo root as cwd.
-const MIGRATIONS_FOLDER = path.join(process.cwd(), "lib/db/drizzle");
+// process.cwd() differs between dev and prod:
+//   dev:  pnpm runs the script with cwd = artifacts/api-server/ (the package dir)
+//   prod: the artifact.toml invokes `node artifacts/api-server/dist/index.mjs`
+//         with the repo root as cwd.
+// We detect the two cases via NODE_ENV and adjust the relative path accordingly.
+// Do NOT use import.meta.url/__dirname: this module is bundled by esbuild into
+// a single dist/index.mjs, so those would point at the bundle, not this file.
+const MIGRATIONS_FOLDER =
+  process.env.NODE_ENV === "development"
+    ? path.join(process.cwd(), "../../lib/db/drizzle")
+    : path.join(process.cwd(), "lib/db/drizzle");
 
 // Runs on every boot (dev and production) — see index.ts. Drizzle tracks
 // applied migrations in a `__drizzle_migrations` table and skips ones

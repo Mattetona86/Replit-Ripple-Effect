@@ -343,11 +343,6 @@ Produce a complete Ripple analysis using the submit_ripple_analysis tool.`;
     }
     const raw = validated.data;
 
-    logger.info({
-      opportunitiesRaw: raw.opportunities,
-      rippleChainCompanies: raw.rippleChain.filter(n => n.type === 'company').map(n => n.ticker),
-    }, 'Ripple LLM raw output');
-
     // Server-side score recomputation for accuracy — the LLM's own
     // rippleOpportunityScore, if present, is discarded and never trusted.
     const opportunities = raw.opportunities.map(opp => ({
