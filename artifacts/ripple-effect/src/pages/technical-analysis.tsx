@@ -292,8 +292,8 @@ export default function TechnicalAnalysis() {
               <div className="text-center max-w-sm px-4">
                 <AlertTriangle className="mx-auto w-10 h-10 text-destructive mb-3" />
                 <p className="text-destructive font-medium mb-1">Failed to load analysis.</p>
-                {(analysisError as any)?.response?.data?.error && (
-                  <p className="text-sm text-muted-foreground">{(analysisError as any).response.data.error}</p>
+                {(analysisError as any)?.data?.error && (
+                  <p className="text-sm text-muted-foreground">{(analysisError as any).data.error}</p>
                 )}
               </div>
             </div>
