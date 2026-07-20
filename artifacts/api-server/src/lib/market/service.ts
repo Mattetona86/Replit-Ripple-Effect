@@ -6,10 +6,9 @@ import {
   getQuote,
   getDailyHistory,
   getIntradayHistory,
-  type FmpDailyBar,
-  type FmpIntradayBar,
+  type YahooBar,
   type IntradayInterval,
-} from "./fmp-client";
+} from "./yahoo-price-client";
 import {
   computeSma,
   computeEma,
@@ -58,8 +57,8 @@ export interface StockAnalysis {
 // Cache raw provider responses briefly to respect FMP rate limits across
 // rapid symbol/timeframe/language changes from the same user session.
 const searchCache = new LRUCache<string, TickerSearchResult[]>({ ttl: 1000 * 60 * 5, max: 200 });
-const dailyCache = new LRUCache<string, FmpDailyBar[]>({ ttl: 1000 * 60 * 5, max: 200 });
-const intradayCache = new LRUCache<string, FmpIntradayBar[]>({ ttl: 1000 * 60 * 2, max: 200 });
+const dailyCache = new LRUCache<string, YahooBar[]>({ ttl: 1000 * 60 * 5, max: 200 });
+const intradayCache = new LRUCache<string, YahooBar[]>({ ttl: 1000 * 60 * 2, max: 200 });
 
 export async function searchTickers(query: string): Promise<TickerSearchResult[]> {
   const cached = searchCache.get(query);
