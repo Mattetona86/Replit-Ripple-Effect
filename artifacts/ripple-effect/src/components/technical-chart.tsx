@@ -154,14 +154,21 @@ export default function TechnicalChart({
     const timeScale2 = rsiChart.timeScale();
     const timeScale3 = macdChart.timeScale();
 
+    // Guard prevents re-entrant sync loops when one setVisibleRange triggers
+    // another subscribeVisibleTimeRangeChange callback.
+    let syncing = false;
+    const safeSet = (ts: ReturnType<typeof chart.timeScale>, range: { from: unknown; to: unknown }) => {
+      try { ts.setVisibleRange(range as any); } catch { /* chart may not have data at this range yet */ }
+    };
+
     timeScale1.subscribeVisibleTimeRangeChange((range) => {
-      if(range) { timeScale2.setVisibleRange(range); timeScale3.setVisibleRange(range); }
+      if (range && !syncing) { syncing = true; safeSet(timeScale2, range); safeSet(timeScale3, range); syncing = false; }
     });
     timeScale2.subscribeVisibleTimeRangeChange((range) => {
-      if(range) { timeScale1.setVisibleRange(range); timeScale3.setVisibleRange(range); }
+      if (range && !syncing) { syncing = true; safeSet(timeScale1, range); safeSet(timeScale3, range); syncing = false; }
     });
     timeScale3.subscribeVisibleTimeRangeChange((range) => {
-      if(range) { timeScale1.setVisibleRange(range); timeScale2.setVisibleRange(range); }
+      if (range && !syncing) { syncing = true; safeSet(timeScale1, range); safeSet(timeScale2, range); syncing = false; }
     });
 
     timeScale1.fitContent();
