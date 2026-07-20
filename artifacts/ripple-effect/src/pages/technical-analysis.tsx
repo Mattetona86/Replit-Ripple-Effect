@@ -76,7 +76,7 @@ export default function TechnicalAnalysis() {
     }
   );
 
-  const { data: analysis, isLoading: isAnalyzing, isError } = useGetStockAnalysis(
+  const { data: analysis, isLoading: isAnalyzing, isError, error: analysisError } = useGetStockAnalysis(
     { symbol: selectedSymbol || '', timeframe: selectedTimeframe, language },
     {
       query: {
@@ -289,9 +289,12 @@ export default function TechnicalAnalysis() {
             </div>
           ) : isError ? (
             <div className="flex-1 flex items-center justify-center min-h-[400px] border border-dashed border-destructive/30 rounded-xl bg-destructive/5">
-              <div className="text-center">
+              <div className="text-center max-w-sm px-4">
                 <AlertTriangle className="mx-auto w-10 h-10 text-destructive mb-3" />
-                <p className="text-destructive font-medium">Failed to load analysis.</p>
+                <p className="text-destructive font-medium mb-1">Failed to load analysis.</p>
+                {(analysisError as any)?.response?.data?.error && (
+                  <p className="text-sm text-muted-foreground">{(analysisError as any).response.data.error}</p>
+                )}
               </div>
             </div>
           ) : analysis ? (

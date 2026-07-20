@@ -12,6 +12,14 @@ function apiKey(): string {
   return key;
 }
 
+/** Thrown when FMP returns 402 — the ticker exists but requires a paid plan. */
+export class FmpSubscriptionError extends Error {
+  constructor(symbol: string) {
+    super(`Ticker "${symbol}" is not available on the current FMP plan.`);
+    this.name = 'FmpSubscriptionError';
+  }
+}
+
 async function fmpGet<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
   const url = new URL(`${FMP_BASE_URL}${path}`);
   for (const [key, value] of Object.entries(params)) {
@@ -23,6 +31,10 @@ async function fmpGet<T>(path: string, params: Record<string, string | number | 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     logger.error({ status: res.status, path, body }, "FMP request failed");
+    if (res.status === 402) {
+      const symbol = params.symbol as string | undefined;
+      throw new FmpSubscriptionError(symbol ?? 'unknown');
+    }
     throw new Error(`FMP request to ${path} failed with status ${res.status}`);
   }
   return (await res.json()) as T;

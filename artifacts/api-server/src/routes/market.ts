@@ -14,6 +14,7 @@ import {
   GetRippleAnalysisParams,
 } from "@workspace/api-zod";
 import { searchTickers, getStockAnalysis } from "../lib/market/service";
+import { FmpSubscriptionError } from "../lib/market/fmp-client";
 import { getFundamentalAnalysis } from "../lib/market/fundamental-service";
 import {
   listSavedAnalyses,
@@ -45,18 +46,25 @@ router.get("/market/tickers/search", async (req: Request, res: Response): Promis
   res.json(SearchTickersResponse.parse(results));
 });
 
-router.get("/market/stocks/analysis", async (req: Request, res: Response): Promise<void> => {
+router.get("/market/stocks/analysis", async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const params = GetStockAnalysisQueryParams.parse(req.query);
   const timeframe = params.timeframe ?? "1Y";
   const language = params.language ?? "en";
 
-  const analysis = await getStockAnalysis(params.symbol, timeframe, language);
-  if (!analysis) {
-    res.status(404).json({ message: "Ticker not found" });
-    return;
+  try {
+    const analysis = await getStockAnalysis(params.symbol, timeframe, language);
+    if (!analysis) {
+      res.status(404).json({ message: "Ticker not found" });
+      return;
+    }
+    res.json(GetStockAnalysisResponse.parse(analysis));
+  } catch (err) {
+    if (err instanceof FmpSubscriptionError) {
+      res.status(422).json({ error: `Ticker "${params.symbol}" is not available on the current data plan. Try a major US stock or ETF (e.g. NVDA, AAPL, SPY).` });
+      return;
+    }
+    next(err);
   }
-
-  res.json(GetStockAnalysisResponse.parse(analysis));
 });
 
 router.get("/market/stocks/fundamental-analysis", async (req: Request, res: Response): Promise<void> => {
