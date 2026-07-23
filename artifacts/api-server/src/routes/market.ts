@@ -15,6 +15,7 @@ import {
 } from "@workspace/api-zod";
 import { searchTickers, getStockAnalysis } from "../lib/market/service";
 import { FmpSubscriptionError } from "../lib/market/fmp-client";
+import { YahooTimeoutError } from "../lib/market/yahoo-price-client";
 import { getFundamentalAnalysis } from "../lib/market/fundamental-service";
 import {
   listSavedAnalyses,
@@ -61,6 +62,10 @@ router.get("/market/stocks/analysis", async (req: Request, res: Response, next: 
   } catch (err) {
     if (err instanceof FmpSubscriptionError) {
       res.status(422).json({ error: `Ticker "${params.symbol}" is not available on the current data plan. Try a major US stock or ETF (e.g. NVDA, AAPL, SPY).` });
+      return;
+    }
+    if (err instanceof YahooTimeoutError) {
+      res.status(503).json({ error: `Data source took too long to respond for "${params.symbol}". Please try again in a few seconds.` });
       return;
     }
     next(err);
